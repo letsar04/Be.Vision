@@ -75,3 +75,22 @@ Prefer auditable signals such as restricted-zone presence, outside-schedule pres
 ## Deployment
 
 Start with Docker Compose for local/on-premise deployments. Use HTTP APIs initially; introduce an event broker when event volume requires it.
+
+
+### Persistence with Supabase
+
+Supabase PostgreSQL is the durable source of truth for Core entities and events. Qdrant remains the vector-search layer and stores only the embedding payload needed for recognition. The API server uses a server-side Supabase secret key; it must never be shipped to frontend or mobile clients.
+
+Current persistence flow:
+
+```text
+Enrollment
+  InsightFace -> Qdrant embedding
+             -> Supabase identity + identity_enrollment
+
+Recognition
+  InsightFace -> Qdrant search -> identity match
+             -> VisionEvent -> Supabase vision_events
+```
+
+The default tenant slug is provided for local bootstrap. Production deployments should create explicit tenants and authenticate operators before exposing tenant-scoped APIs.
