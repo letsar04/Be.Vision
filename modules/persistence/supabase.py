@@ -33,9 +33,27 @@ class SupabaseRepository:
         if not result.data: raise RuntimeError("Failed to persist enrollment")
         return result.data[0]
     async def create_vision_event(self,event:dict[str,Any]):
-        db=await self._db(); tenant_id=await self.resolve_tenant(str(event.get("metadata",{}).get("tenant_id","default")))
+        db=await self._db()
+        tenant_id=await self.resolve_tenant(str(event.get("metadata",{}).get("tenant_id","default")))
+        camera_uuid=None
+        camera_ref=event.get("camera_id")
+        if camera_ref:
+            try:
+                camera_uuid=str(uuid.UUID(str(camera_ref)))
+                camera=await db.table("cameras").select("id").eq("id",camera_uuid).eq("tenant_id",tenant_id).limit(1).execute()
+                if not camera.data: camera_uuid=None
+            except ValueError:
+                camera_uuid=None
         subject_uuid=None
-        if event.get("subject_id"): subject_uuid=await self.ensure_identity(tenant_id,str(event["subject_id"]))
-        result=await db.table("vision_events").insert({"tenant_id":tenant_id,"type":event["type"],"occurred_at":event["occurred_at"],"subject_id":subject_uuid,"confidence":event.get("confidence"),"signals":event.get("signals",{}),"model":event.get("model"),"model_version":event.get("model_version"),"metadata":event.get("metadata",{})}).execute()
+        subject_ref=event.get("subject_id")
+        if subject_ref:
+            existing=await db.table("identities").select("id").eq("tenant_id",tenant_id).eq("external_id",str(subject_ref)).limit(1).execute()
+            if existing.data: subject_uuid=existing.data[0]["id"]
+        result=await db.table("vision_events").insert({
+            "tenant_id":tenant_id,"type":event["type"],"occurred_at":event["occurred_at"],
+            "camera_id":camera_uuid,"subject_id":subject_uuid,"confidence":event.get("confidence"),
+            "signals":event.get("signals",{}),"model":event.get("model"),
+            "model_version":event.get("model_version"),"metadata":event.get("metadata",{})
+        }).execute()
         if not result.data: raise RuntimeError("Failed to persist vision event")
         return result.data[0]
