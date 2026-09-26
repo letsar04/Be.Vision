@@ -75,3 +75,24 @@ Product-specific APIs live above Core:
 - /api/v1/attendance/*
 - /api/v1/security/*
 - /api/v1/analytics/*
+
+
+## First Core pipeline endpoint
+
+The legacy FaceCompare API now exposes the first reusable pipeline:
+
+`POST /api/v1/events/recognize`
+
+Multipart fields:
+- `image`: camera frame or image.
+- `camera_id`: source camera identifier.
+- `tenant_id`: tenant isolation key.
+- `threshold`: optional recognition threshold.
+
+Pipeline:
+
+`image -> InsightFace -> embedding -> Qdrant(vector memory) -> identity -> VisionEvent`
+
+The endpoint returns the canonical event plus recognition details. Product applications such as attendance and site monitoring should consume this event instead of duplicating recognition logic.
+
+The vector-memory adapter filters searches by `tenant_id`, and enrollment payloads carry the model and model-version metadata needed for later evaluation and migration.
