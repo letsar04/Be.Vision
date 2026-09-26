@@ -188,7 +188,10 @@ async def create_camera(payload: dict):
          "source_uri":payload.get("source_uri"),"zone":payload.get("zone"),"enabled":bool(payload.get("enabled",True)),
          "metadata":payload.get("metadata") or {}}
     result=await (await persistence._db()).table("cameras").insert(row).execute()
-    return result.data[0] if result.data else {}
+    if not result.data: raise HTTPException(502,"Failed to create camera")
+    created=result.data[0]
+    created.pop("source_uri", None)
+    return created
 
 @app.get("/api/v1/cameras/{camera_id}/status")
 async def camera_status(camera_id: str):
