@@ -19,12 +19,14 @@ from app.schemas import (
 )
 from app.services.insightface import insightface_service
 from app.services.qdrant import qdrant_service
+from app.core_pipeline import identity_service, vector_memory, recognition_event_pipeline
 from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         await qdrant_service.ensure_collections()
+        await vector_memory.ensure_collection()
     except Exception:
         pass
     yield
@@ -282,3 +284,34 @@ async def get_verification(verification_id: str):
         target_quality=FaceQualitySchema(**payload["target_quality"]) if payload.get("target_quality") else None,
         payload=payload,
     )
+
+
+@app.post("/api/v1/events/recognize")
+async def recognize_camera_event(
+    image: UploadFile = File(...),
+    camera_id: str = Form(...),
+    tenant_id: str = Form("default"),
+    threshold: float | None = Form(None),
+):
+    """Run the reusable image -> identity -> VisionEvent pipeline.
+
+    This endpoint is product-neutral: attendance, security and analytics can
+    consume the resulting event without duplicating recognition logic.
+    """
+    image_bytes = await image.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="Image file cannot be empty")
+
+    try:
+        event, details = await recognition_event_pipeline.process(
+            image_bytes,
+            camera_id=camera_id,
+            tenant_id=tenant_id,
+            threshold=threshold if threshold is not None else settings.default_match_threshold,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Recognition pipeline failed: {exc}")
+
+    return {"event": event.model_dump(mode="json"), "details": details}
