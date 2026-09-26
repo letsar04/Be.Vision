@@ -315,3 +315,33 @@ async def recognize_camera_event(
         raise HTTPException(status_code=502, detail=f"Recognition pipeline failed: {exc}")
 
     return {"event": event.model_dump(mode="json"), "details": details}
+
+
+@app.post("/api/v1/core/identities/enroll")
+async def enroll_core_identity(
+    image: UploadFile = File(...),
+    identity_id: str = Form(...),
+    tenant_id: str = Form("default"),
+    metadata: str | None = Form(None),
+):
+    """Enroll an identity into the reusable tenant-scoped Core vector memory."""
+    image_bytes = await image.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="Image file cannot be empty")
+    metadata_dict = {}
+    if metadata:
+        try:
+            metadata_dict = json.loads(metadata)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON format for metadata")
+    try:
+        return await identity_service.enroll(
+            image_bytes,
+            identity_id,
+            tenant_id=tenant_id,
+            metadata=metadata_dict,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Core enrollment failed: {exc}")
