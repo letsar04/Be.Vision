@@ -1,10 +1,28 @@
 <!doctype html>
 <html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Be.Vision Phone Camera</title>
-<style>body{font-family:system-ui;margin:0;background:#101418;color:#fff}main{max-width:720px;margin:auto;padding:16px}video{width:100%;border-radius:14px;background:#000}button{padding:14px 18px;margin:8px 4px;border:0;border-radius:10px;font-weight:700}#status{padding:10px 0;color:#9fe7b0}</style></head>
-<body><main><h2>Be.Vision — Phone Camera</h2><p id="status">Initialisation…</p><video id="video" autoplay playsinline muted></video><canvas id="canvas" hidden></canvas><div><button id="start">Démarrer</button><button id="stop">Arrêter</button></div>
+<style>body{font-family:system-ui;margin:0;background:#101418;color:#fff}main{max-width:720px;margin:auto;padding:16px}video{width:100%;border-radius:14px;background:#000}button{padding:14px 18px;margin:8px 4px;border:0;border-radius:10px;font-weight:700}#status{padding:10px 0;color:#9fe7b0}.warn{color:#ffd166}</style></head>
+<body><main><h2>Be.Vision — Phone Camera</h2><p id="status">Prêt.</p><p id="secure" class="warn"></p><video id="video" autoplay playsinline muted></video><canvas id="canvas" hidden></canvas><div><button id="start">Démarrer</button><button id="stop">Arrêter</button></div>
 <script>
-const p=new URLSearchParams(location.search),cameraId=p.get("camera_id"),tenant=p.get("tenant_id")||"default",video=document.getElementById("video"),canvas=document.getElementById("canvas"),status=document.getElementById("status");let stream,timer;
-async function start(){if(!cameraId)return status.textContent="camera_id manquant";try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false});video.srcObject=stream;timer=setInterval(send,500);status.textContent="Caméra active — envoi vers Be.Vision"}catch(e){status.textContent="Accès caméra refusé ou page non sécurisée"}}
-async function send(){if(!video.videoWidth)return;canvas.width=video.videoWidth;canvas.height=video.videoHeight;canvas.getContext("2d").drawImage(video,0,0);canvas.toBlob(async b=>{if(!b)return;const f=new FormData();f.append("frame",b,"frame.jpg");f.append("tenant_id",tenant);try{await fetch("/api/v1/cameras/"+encodeURIComponent(cameraId)+"/frames",{method:"POST",body:f})}catch(e){status.textContent="Connexion perdue"}}, "image/jpeg", .78)}
-function stop(){clearInterval(timer);if(stream)stream.getTracks().forEach(t=>t.stop());status.textContent="Caméra arrêtée"}document.getElementById("start").onclick=start;document.getElementById("stop").onclick=stop;
+const p=new URLSearchParams(location.search),cameraId=p.get("camera_id"),tenant=p.get("tenant_id")||"default";
+const video=document.getElementById("video"),canvas=document.getElementById("canvas"),status=document.getElementById("status"),secure=document.getElementById("secure");
+let stream,timer,busy=false;
+if(!window.isSecureContext){secure.textContent="⚠️ Le navigateur mobile exige HTTPS pour accéder à la caméra. Utilisez l’URL HTTPS de votre déploiement, ou le mode RTSP/IP Camera depuis le centre de contrôle."}
+async function start(){
+ if(!cameraId)return status.textContent="camera_id manquant";
+ if(!navigator.mediaDevices?.getUserMedia)return status.textContent="Caméra navigateur indisponible sur cette page (HTTPS requis)";
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false});
+  video.srcObject=stream; timer=setInterval(send,500); status.textContent="Caméra active — envoi vers Be.Vision";
+ }catch(e){status.textContent="Accès caméra refusé ou page non sécurisée"}
+}
+async function send(){
+ if(busy||!video.videoWidth)return; busy=true; canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+ canvas.getContext("2d").drawImage(video,0,0);
+ canvas.toBlob(async b=>{
+  try{if(!b)return;const f=new FormData();f.append("frame",b,"frame.jpg");f.append("tenant_id",tenant);
+      await fetch("/api/v1/cameras/"+encodeURIComponent(cameraId)+"/frames",{method:"POST",body:f});
+  }catch(e){status.textContent="Connexion perdue"}finally{busy=false}}, "image/jpeg", .78);
+}
+function stop(){clearInterval(timer);timer=null;if(stream)stream.getTracks().forEach(t=>t.stop());status.textContent="Caméra arrêtée"}
+document.getElementById("start").onclick=start;document.getElementById("stop").onclick=stop;
 </script></main></body></html>
