@@ -1,0 +1,181 @@
+:root {
+  --bg-app: #F5F4F0; /* Blanc cassé élégant et chaleureux */
+  --bg-card: #FFFFFF;
+  --bg-card-subtle: #FAF9F6;
+  
+  --text-main: #111111;
+  --text-muted: #666666;
+  --text-light: #888888;
+  
+  --btn-black: #111111;
+  --btn-black-hover: #262626;
+  --btn-black-text: #FFFFFF;
+  
+  --accent-scarlet: #D90429;
+  --accent-scarlet-hover: #EF233C;
+  --accent-scarlet-light: #FFE5E8;
+  --accent-scarlet-glow: rgba(217, 4, 41, 0.15);
+  
+  --border-light: #E5E3DC;
+  --border-subtle: #EEEDEA;
+  
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.09);
+  --shadow-scarlet: 0 6px 20px rgba(217, 4, 41, 0.25);
+  
+  --font-heading: 'Outfit', sans-serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+#root {
+  width: 100%;
+  max-width: 480px; /* Expérience mobile centrée ultra-ergonomique */
+  min-height: 100vh;
+  background-color: var(--bg-app);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 50px rgba(0,0,0,0.05);
+}
+
+@media (min-width: 768px) {
+  body {
+    padding: 20px 0;
+  }
+  #root {
+    min-height: 92vh;
+    border-radius: 28px;
+    overflow: hidden;
+    border: 1px solid var(--border-light);
+  }
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+/* Boutons stylisés Noir & Rouge Écarlate */
+.btn-black {
+  background-color: var(--btn-black);
+  color: var(--btn-black-text);
+  border: none;
+  padding: 14px 22px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.btn-black:hover {
+  background-color: var(--btn-black-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+
+.btn-black:active {
+  transform: translateY(1px);
+}
+
+.btn-scarlet {
+  background-color: var(--accent-scarlet);
+  color: #FFFFFF;
+  border: none;
+  padding: 14px 22px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-scarlet);
+}
+
+.btn-scarlet:hover {
+  background-color: var(--accent-scarlet-hover);
+  transform: translateY(-1px);
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: var(--text-main);
+  border: 1.5px solid var(--text-main);
+  padding: 12px 20px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+  background-color: rgba(17, 17, 17, 0.05);
+}
+
+/* Animations et effets */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.35s ease-out forwards;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-app);
+}
+::-webkit-scrollbar-thumb {
+  background: #D5D2C8;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-scarlet);
+}

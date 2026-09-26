@@ -1,0 +1,36 @@
+# Flutter / Dart
+**/.dart_tool/
+**/build/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.pub-cache/
+**/.pub/
+
+# Node / JS
+**/node_modules/
+**/dist/
+**/.npm
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.venv/
+**/venv/
+**/env/
+
+# Large Model weights and binaries (>50MB / not suited for git)
+**/*.onnx
+**/*.pb
+**/*.tflite
+**/*.weights
+**/*.pkl
+**/*.pth
+**/*.pt
+**/.models/
+
+# System / IDE files
+.DS_Store
+Thumbs.db
+**/.idea/
+**/*.iml

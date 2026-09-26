@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FaceCompare AI — Interface KYC & Reconnaissance Faciale</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --card-bg: rgba(18, 24, 38, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-light: rgba(79, 70, 229, 0.15);
+      --accent: #06b6d4;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --input-bg: rgba(11, 15, 25, 0.6);
+      --input-border: rgba(255, 255, 255, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(79, 70, 229, 0.12) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.12) 0%, transparent 40%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header & Health Banner */
+    header {
+      background: rgba(9, 13, 22, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--card-border);
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-container {
+      max-width: 1300px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-weight: 800;
+      font-size: 1.35rem;
+      background: linear-gradient(135deg, #818cf8 0%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-icon {
+      width: 38px;
+      height: 38px;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.2rem;
+      box-shadow: 0 4px 15px rgba(79, 70, 229, 0.35);
+    }
+
+    .health-pills {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .health-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      padding: 0.4rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+    }
+
+    .dot.online {
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    .dot.offline {
+      background: var(--danger);
+      box-shadow: 0 0 8px var(--danger);
+    }
+
+    /* Main Container */
+    main {
+      max-width: 1300px;
+      width: 100%;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+      flex: 1;
+    }
+
+    /* Navigation Tabs */
+    .tabs-nav {
+      display: flex;
+      gap: 0.5rem;
+      background: rgba(18, 24, 38, 0.5);
+      padding: 0.4rem;
+      border-radius: 14px;
+      border: 1px solid var(--card-border);
+      margin-bottom: 2rem;
+      overflow-x: auto;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 0.85rem 1.25rem;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      transition: all 0.25s ease;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: white;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+    }
+
+    /* Tab Content Cards */
+    .tab-panel {
+      display: none;
+      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .glass-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 2rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    .card-header {
+      margin-bottom: 1.5rem;
+    }
+
+    .card-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .card-subtitle {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* Grid Layouts */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    /* Dropzone Upload Component */
+    .upload-box {
+      border: 2px dashed var(--input-border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      text-align: center;
+      background: var(--input-bg);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+      min-height: 230px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .upload-box:hover, .upload-box.dragover {
+      border-color: var(--primary);
+      background: rgba(79, 70, 229, 0.05);
+    }
+
+    .upload-icon {
+      font-size: 2.2rem;
+      margin-bottom: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .upload-label {
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .upload-hint {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    .preview-img {
+      max-width: 100%;
+      max-height: 180px;
+      border-radius: 12px;
+      object-fit: cover;
+      display: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .btn-cam {
+      margin-top: 0.75rem;
+      padding: 0.4rem 0.85rem;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      color: var(--text-main);
+      font-size: 0.8rem;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      transition: background 0.2s;
+    }
+
+    .btn-cam:hover {
+      background: rgba(255,255,255,0.12);
+    }
+
+    /* Controls & Form inputs */
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+      color: var(--text-main);
+    }
+
+    .form-input, .form-select, .form-textarea {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 10px;
+      color: var(--text-main);
+      font-family: inherit;
+      font-size: 0.9rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .slider {
+      flex: 1;
+      accent-color: var(--primary);
+    }
+
+    .slider-val {
+      font-weight: 700;
+      min-width: 45px;
+      color: var(--accent);
+    }
+
+    /* Buttons */
+    .btn-primary {
+      width: 100%;
+      padding: 0.9rem 1.5rem;
+      background: linear-gradient(135deg, var(--primary) 0%, #6366f1 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      transition: all 0.25s ease;
+      box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(79, 70, 229, 0.55);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Results Dashboard Cards */
+    .result-container {
+      margin-top: 2rem;
+      display: none;
+    }
+
+    .status-banner {
+      padding: 1.25rem;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+    }
+
+    .status-banner.match {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+    }
+
+    .status-banner.no-match {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+
+    .status-title {
+      font-weight: 800;
+      font-size: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .gauge-card {
+      background: rgba(11, 15, 25, 0.5);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 1.25rem;
+      text-align: center;
+    }
+
+    .gauge-val {
+      font-size: 2.5rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #818cf8 0%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .gauge-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 0.25rem;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .metric-box {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 0.85rem;
+      font-size: 0.85rem;
+    }
+
+    .metric-name {
+      color: var(--text-muted);
+      margin-bottom: 0.25rem;
+    }
+
+    .metric-val {
+      font-weight: 700;
+    }
+
+    /* Modal for Webcam */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+    }
+
+    .modal-card {
+      background: var(--bg-dark);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 1.5rem;
+      max-width: 500px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .webcam-video {
+      width: 100%;
+      max-height: 320px;
+      border-radius: 12px;
+      background: black;
+      margin: 1rem 0;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: center;
+    }
+
+    .btn-secondary {
+      padding: 0.6rem 1.2rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      color: var(--text-main);
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    /* Search Results Cards */
+    .search-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 1rem;
+      margin-top: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .search-match-score {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--accent);
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="header-container">
+      <div class="logo">
+        <div class="logo-icon">🔍</div>
+        <span>FaceCompare AI</span>
+      </div>
+      <div class="health-pills">
+        <div class="health-pill" title="Status du microservice InsightFace">
+          <div class="dot" id="dot-insightface"></div>
+          <span>InsightFace</span>
+        </div>
+        <div class="health-pill" title="Status de la base vectorielle Qdrant">
+          <div class="dot" id="dot-qdrant"></div>
+          <span>Qdrant DB</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main>
+    <!-- Navigation Tabs -->
+    <nav class="tabs-nav">
+      <button class="tab-btn active" onclick="switchTab('verify')">
+        <span>🛡️</span> Vérification 1:1 (KYC)
+      </button>
+      <button class="tab-btn" onclick="switchTab('enroll')">
+        <span>👤</span> Enrôlement d'Identité
+      </button>
+      <button class="tab-btn" onclick="switchTab('search')">
+        <span>🔎</span> Recherche 1:N
+      </button>
+      <button class="tab-btn" onclick="switchTab('audit')">
+        <span>📋</span> Journal d'Audit
+      </button>
+    </nav>
+
+    <!-- Tab 1: Verification 1:1 -->
+    <div id="tab-verify" class="tab-panel active">
+      <div class="glass-card">
+        <div class="card-header">
+          <h2 class="card-title">Vérification d'Identité 1:1</h2>
+          <p class="card-subtitle">Comparez une pièce d'identité (Passeport / CNI) avec un selfie live pour valider l'identité.</p>
+        </div>
+
+        <div class="grid-2">
+          <!-- Source Upload -->
+          <div>
+            <label class="form-label">1. Pièce d'Identité / Passeport</label>
+            <div class="upload-box" id="box-source" onclick="triggerFileInput('file-source')">
+              <div class="upload-icon">📄</div>
+              <div class="upload-label">Déposez l'image ici ou cliquez</div>
+              <div class="upload-hint">PNG, JPG, WEBP acceptés</div>
+              <img id="prev-source" class="preview-img" alt="Source Preview" />
+            </div>
+            <input type="file" id="file-source" class="file-input" accept="image/*" onchange="handleFileSelect(this, 'prev-source', 'box-source')" />
+          </div>
+
+          <!-- Target Upload -->
+          <div>
+            <label class="form-label">2. Photo Selfie Live</label>
+            <div class="upload-box" id="box-target" onclick="triggerFileInput('file-target')">
+              <div class="upload-icon">📸</div>
+              <div class="upload-label">Déposez le selfie ici ou cliquez</div>
+              <div class="upload-hint">Ou prenez une photo avec votre webcam</div>
+              <img id="prev-target" class="preview-img" alt="Target Preview" />
+            </div>
+            <button type="button" class="btn-cam" onclick="openWebcam('file-target', 'prev-target', 'box-target')">
+              📷 Prendre une photo Webcam
+            </button>
+            <input type="file" id="file-target" class="file-input" accept="image/*" onchange="handleFileSelect(this, 'prev-target', 'box-target')" />
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div style="margin-top: 1.5rem;">
+          <div class="form-group">
+            <label class="form-label">Seuil de Decision (Threshold)</label>
+            <div class="slider-container">
+              <input type="range" id="threshold-verify" class="slider" min="0.30" max="0.90" step="0.05" value="0.60" oninput="document.getElementById('val-verify').innerText = this.value" />
+              <span id="val-verify" class="slider-val">0.60</span>
+            </div>
+          </div>
+
+          <button id="btn-run-verify" class="btn-primary" onclick="submitVerification()">
+            <span>⚡ Exécuter la Vérification KYC</span>
+          </button>
+        </div>
+
+        <!-- Result -->
+        <div id="result-verify" class="result-container">
+          <div id="banner-verify" class="status-banner">
+            <div class="status-title" id="status-title-verify">
+              <!-- Dynamically populated -->
+            </div>
+            <div id="badge-time-verify" style="font-size: 0.85rem; opacity: 0.9;"></div>
+          </div>
+
+          <div class="grid-3">
+            <div class="gauge-card">
+              <div class="gauge-val" id="gauge-sim-verify">0.0%</div>
+              <div class="gauge-label">Score de Similarité</div>
+            </div>
+            <div class="gauge-card">
+              <div class="gauge-val" id="gauge-qual-source">0.0</div>
+              <div class="gauge-label">Qualité Image Source</div>
+            </div>
+            <div class="gauge-card">
+              <div class="gauge-val" id="gauge-qual-target">0.0</div>
+              <div class="gauge-label">Qualité Image Selfie</div>
+            </div>
+          </div>
+
+          <div id="verif-id-box" class="metric-box" style="margin-top: 1rem;">
+            <div class="metric-name">ID unique d'Audit Qdrant :</div>
+            <div class="metric-val" id="verif-id-val" style="font-family: monospace; color: var(--accent);"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Enrollment -->
+    <div id="tab-enroll" class="tab-panel">
+      <div class="glass-card">
+        <div class="card-header">
+          <h2 class="card-title">Enrôlement d'Identité</h2>
+          <p class="card-subtitle">Enregistrez un visage et ses métadonnées dans la base vectorielle Qdrant pour la recherche future.</p>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <label class="form-label">Photo du Visage</label>
+            <div class="upload-box" id="box-enroll" onclick="triggerFileInput('file-enroll')">
+              <div class="upload-icon">👤</div>
+              <div class="upload-label">Déposez l'image ici ou cliquez</div>
+              <img id="prev-enroll" class="preview-img" alt="Enroll Preview" />
+            </div>
+            <button type="button" class="btn-cam" onclick="openWebcam('file-enroll', 'prev-enroll', 'box-enroll')">
+              📷 Prendre une photo Webcam
+            </button>
+            <input type="file" id="file-enroll" class="file-input" accept="image/*" onchange="handleFileSelect(this, 'prev-enroll', 'box-enroll')" />
+          </div>
+
+          <div>
+            <div class="form-group">
+              <label class="form-label">Identifiant Personne (person_id) *</label>
+              <input type="text" id="enroll-person-id" class="form-input" placeholder="ex: USR-90412" required />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nom complet (Optionnel)</label>
+              <input type="text" id="enroll-name" class="form-input" placeholder="ex: Jean Dupont" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">ID Externe / N° Employé (Optionnel)</label>
+              <input type="text" id="enroll-ext-id" class="form-input" placeholder="ex: EMP-2026" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Métadonnées JSON métier (Optionnel)</label>
+              <textarea id="enroll-metadata" class="form-textarea" rows="3" placeholder='{"departement": "Finance", "niveau": 3}'></textarea>
+            </div>
+
+            <button id="btn-run-enroll" class="btn-primary" onclick="submitEnrollment()">
+              <span>💾 Enrôler dans Qdrant</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Result Enrollment -->
+        <div id="result-enroll" class="result-container">
+          <div id="banner-enroll" class="status-banner match">
+            <div class="status-title">✅ Identité Enrôlée avec Succès !</div>
+          </div>
+          <div class="metrics-grid" id="metrics-enroll">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Search 1:N -->
+    <div id="tab-search" class="tab-panel">
+      <div class="glass-card">
+        <div class="card-header">
+          <h2 class="card-title">Recherche d'Identité 1:N</h2>
+          <p class="card-subtitle">Retrouvez immédiatement l'identité d'un individu inconnu parmi tous les visages enregistrés.</p>
+        </div>
+
+        <div class="grid-2">
+          <div>
+            <label class="form-label">Photo du Visage à rechercher</label>
+            <div class="upload-box" id="box-search" onclick="triggerFileInput('file-search')">
+              <div class="upload-icon">🔎</div>
+              <div class="upload-label">Déposez l'image ici ou cliquez</div>
+              <img id="prev-search" class="preview-img" alt="Search Preview" />
+            </div>
+            <button type="button" class="btn-cam" onclick="openWebcam('file-search', 'prev-search', 'box-search')">
+              📷 Prendre une photo Webcam
+            </button>
+            <input type="file" id="file-search" class="file-input" accept="image/*" onchange="handleFileSelect(this, 'prev-search', 'box-search')" />
+          </div>
+
+          <div>
+            <div class="form-group">
+              <label class="form-label">Seuil de similarité minimum (Threshold)</label>
+              <div class="slider-container">
+                <input type="range" id="threshold-search" class="slider" min="0.30" max="0.90" step="0.05" value="0.60" oninput="document.getElementById('val-search').innerText = this.value" />
+                <span id="val-search" class="slider-val">0.60</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Nombre maximum de résultats (Limit)</label>
+              <input type="number" id="limit-search" class="form-input" min="1" max="50" value="5" />
+            </div>
+
+            <button id="btn-run-search" class="btn-primary" onclick="submitSearch()">
+              <span>🚀 Lancer la Recherche Vectorielle</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Result Search -->
+        <div id="result-search" class="result-container">
+          <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">Résultats correspondants trouvés</h3>
+          <div id="search-matches-list">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 4: Audit -->
+    <div id="tab-audit" class="tab-panel">
+      <div class="glass-card">
+        <div class="card-header">
+          <h2 class="card-title">Journal d'Audit des Vérifications</h2>
+          <p class="card-subtitle">Recherchez l'historique complet et les détails d'une vérification par son identifiant unique UUID.</p>
+        </div>
+
+        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+          <input type="text" id="audit-id-input" class="form-input" placeholder="Entrez un Verification ID (ex: 8f31b2...)" style="flex: 1;" />
+          <button class="btn-primary" style="width: auto; padding: 0 1.5rem;" onclick="fetchAuditDetail()">
+            <span>Rechercher</span>
+          </button>
+        </div>
+
+        <div id="result-audit" class="result-container">
+          <div class="metrics-grid" id="audit-summary-grid"></div>
+          <div style="margin-top: 1.5rem;">
+            <label class="form-label">Payload JSON brut conservé dans Qdrant :</label>
+            <pre id="audit-json" style="background: rgba(0,0,0,0.5); padding: 1rem; border-radius: 10px; font-size: 0.85rem; overflow-x: auto; color: #a5b4fc; border: 1px solid var(--card-border);"></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Webcam Modal -->
+  <div id="webcam-modal" class="modal-overlay">
+    <div class="modal-card">
+      <h3>Capture Photo Live (Webcam)</h3>
+      <video id="webcam-video" class="webcam-video" autoplay playsinline></video>
+      <div class="modal-actions">
+        <button class="btn-primary" style="width: auto;" onclick="captureWebcamSnapshot()">📷 Capturer</button>
+        <button class="btn-secondary" onclick="closeWebcamModal()">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // System State & Setup
+    let activeCamStream = null;
+    let targetInputId = null;
+    let targetPrevId = null;
+    let targetBoxId = null;
+
+    // Check health on load
+    window.addEventListener('DOMContentLoaded', () => {
+      checkHealth();
+      setInterval(checkHealth, 15000);
+    });
+
+    async function checkHealth() {
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        
+        const dotIf = document.getElementById('dot-insightface');
+        const dotQd = document.getElementById('dot-qdrant');
+
+        if (data.insightface_connected) {
+          dotIf.className = 'dot online';
+        } else {
+          dotIf.className = 'dot offline';
+        }
+
+        if (data.qdrant_connected) {
+          dotQd.className = 'dot online';
+        } else {
+          dotQd.className = 'dot offline';
+        }
+      } catch (err) {
+        console.error('Health check failed:', err);
+      }
+    }
+
+    // Tabs navigation
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.remove('active'));
+      
+      event.currentTarget.classList.add('active');
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+    }
+
+    // File input handlers
+    function triggerFileInput(id) {
+      document.getElementById(id).click();
+    }
+
+    function handleFileSelect(input, prevId, boxId) {
+      const file = input.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = document.getElementById(prevId);
+          img.src = e.target.result;
+          img.style.display = 'block';
+          document.getElementById(boxId).querySelectorAll('.upload-icon, .upload-label, .upload-hint').forEach(el => el.style.display = 'none');
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    // Drag & Drop handlers
+    document.querySelectorAll('.upload-box').forEach(box => {
+      box.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        box.classList.add('dragover');
+      });
+      box.addEventListener('dragleave', () => box.classList.remove('dragover'));
+      box.addEventListener('drop', (e) => {
+        e.preventDefault();
+        box.classList.remove('dragover');
+        const fileInput = box.parentNode.querySelector('.file-input');
+        if (e.dataTransfer.files.length > 0) {
+          fileInput.files = e.dataTransfer.files;
+          const prevImg = box.querySelector('.preview-img');
+          handleFileSelect(fileInput, prevImg.id, box.id);
+        }
+      });
+    });
+
+    // Webcam handlers
+    async function openWebcam(inputId, prevId, boxId) {
+      targetInputId = inputId;
+      targetPrevId = prevId;
+      targetBoxId = boxId;
+      
+      const modal = document.getElementById('webcam-modal');
+      const video = document.getElementById('webcam-video');
+
+      try {
+        activeCamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+        video.srcObject = activeCamStream;
+        modal.style.display = 'flex';
+      } catch (err) {
+        alert('Impossible d\'accéder à la webcam : ' + err.message);
+      }
+    }
+
+    function closeWebcamModal() {
+      if (activeCamStream) {
+        activeCamStream.getTracks().forEach(t => t.stop());
+        activeCamStream = null;
+      }
+      document.getElementById('webcam-modal').style.display = 'none';
+    }
+
+    function captureWebcamSnapshot() {
+      const video = document.getElementById('webcam-video');
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0);
+
+      canvas.toBlob((blob) => {
+        const file = new File([blob], "webcam_snap.jpg", { type: "image/jpeg" });
+        const container = new DataTransfer();
+        container.items.add(file);
+        
+        const input = document.getElementById(targetInputId);
+        input.files = container.files;
+
+        const prevImg = document.getElementById(targetPrevId);
+        prevImg.src = URL.createObjectURL(file);
+        prevImg.style.display = 'block';
+
+        document.getElementById(targetBoxId).querySelectorAll('.upload-icon, .upload-label, .upload-hint').forEach(el => el.style.display = 'none');
+        closeWebcamModal();
+      }, 'image/jpeg', 0.95);
+    }
+
+    // Submit 1:1 Verification
+    async function submitVerification() {
+      const srcFile = document.getElementById('file-source').files[0];
+      const tgtFile = document.getElementById('file-target').files[0];
+      const threshold = document.getElementById('threshold-verify').value;
+
+      if (!srcFile || !tgtFile) {
+        alert('Veuillez sélectionner à la fois la pièce d\'identité ET le selfie.');
+        return;
+      }
+
+      const btn = document.getElementById('btn-run-verify');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Analyse en cours avec InsightFace...';
+
+      const formData = new FormData();
+      formData.append('source_image', srcFile);
+      formData.append('target_image', tgtFile);
+      formData.append('threshold', threshold);
+
+      try {
+        const res = await fetch('/api/v1/verify', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Erreur lors de la vérification');
+
+        // Render Results
+        const resBox = document.getElementById('result-verify');
+        const banner = document.getElementById('banner-verify');
+        const title = document.getElementById('status-title-verify');
+        
+        if (data.matched) {
+          banner.className = 'status-banner match';
+          title.innerHTML = '✅ MATCH VALIDÉ — Mêmes Identités';
+        } else {
+          banner.className = 'status-banner no-match';
+          title.innerHTML = '❌ MATCH REFUSÉ — Identités Différentes';
+        }
+
+        document.getElementById('badge-time-verify').innerText = `Temps de calcul : ${data.processing_ms.toFixed(1)} ms`;
+        document.getElementById('gauge-sim-verify').innerText = `${(data.similarity * 100).toFixed(1)}%`;
+        
+        const srcQual = data.source_quality ? data.source_quality.score.toFixed(2) : 'N/A';
+        const tgtQual = data.target_quality ? data.target_quality.score.toFixed(2) : 'N/A';
+        document.getElementById('gauge-qual-source').innerText = srcQual;
+        document.getElementById('gauge-qual-target').innerText = tgtQual;
+
+        document.getElementById('verif-id-val').innerText = data.verification_id;
+
+        resBox.style.display = 'block';
+      } catch (err) {
+        alert('Erreur: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>⚡ Exécuter la Vérification KYC</span>';
+      }
+    }
+
+    // Submit Enrollment
+    async function submitEnrollment() {
+      const imgFile = document.getElementById('file-enroll').files[0];
+      const personId = document.getElementById('enroll-person-id').value.trim();
+      const name = document.getElementById('enroll-name').value.trim();
+      const extId = document.getElementById('enroll-ext-id').value.trim();
+      const metadataStr = document.getElementById('enroll-metadata').value.trim();
+
+      if (!imgFile || !personId) {
+        alert('Veuillez fournir une photo et un Person ID.');
+        return;
+      }
+
+      const btn = document.getElementById('btn-run-enroll');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Extraction embedding & stockage Qdrant...';
+
+      const formData = new FormData();
+      formData.append('image', imgFile);
+      formData.append('person_id', personId);
+      if (name) formData.append('name', name);
+      if (extId) formData.append('external_id', extId);
+      if (metadataStr) formData.append('metadata', metadataStr);
+
+      try {
+        const res = await fetch('/api/v1/enroll', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Erreur d\'enrôlement');
+
+        const resBox = document.getElementById('result-enroll');
+        const grid = document.getElementById('metrics-enroll');
+        grid.innerHTML = `
+          <div class="metric-box"><div class="metric-name">Person ID</div><div class="metric-val">${data.person_id}</div></div>
+          <div class="metric-box"><div class="metric-name">Vector Point ID (Qdrant)</div><div class="metric-val" style="font-family:monospace; color:var(--accent);">${data.vector_id}</div></div>
+          <div class="metric-box"><div class="metric-name">Dimension Embedding</div><div class="metric-val">${data.embedding_dim}D</div></div>
+          <div class="metric-box"><div class="metric-name">Date d'Enrôlement</div><div class="metric-val">${new Date(data.created_at).toLocaleString('fr-FR')}</div></div>
+        `;
+        resBox.style.display = 'block';
+      } catch (err) {
+        alert('Erreur: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>💾 Enrôler dans Qdrant</span>';
+      }
+    }
+
+    // Submit Search
+    async function submitSearch() {
+      const imgFile = document.getElementById('file-search').files[0];
+      const threshold = document.getElementById('threshold-search').value;
+      const limit = document.getElementById('limit-search').value;
+
+      if (!imgFile) {
+        alert('Veuillez sélectionner une image pour la recherche.');
+        return;
+      }
+
+      const btn = document.getElementById('btn-run-search');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Recherche vectorielle cosinus...';
+
+      const formData = new FormData();
+      formData.append('image', imgFile);
+      formData.append('threshold', threshold);
+      formData.append('limit', limit);
+
+      try {
+        const res = await fetch('/api/v1/search', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Erreur de recherche');
+
+        const resBox = document.getElementById('result-search');
+        const matchesList = document.getElementById('search-matches-list');
+        matchesList.innerHTML = '';
+
+        if (!data.matches || data.matches.length === 0) {
+          matchesList.innerHTML = '<div style="color:var(--text-muted); padding:1rem;">Aucune identité correspondante au-dessus du seuil.</div>';
+        } else {
+          data.matches.forEach(m => {
+            const el = document.createElement('div');
+            el.className = 'search-card';
+            el.innerHTML = `
+              <div>
+                <div style="font-weight: 700; font-size: 1.05rem;">${m.name || 'Nom inconnu'} <span style="font-size:0.85rem; color:var(--text-muted); font-weight:normal;">(${m.person_id})</span></div>
+                <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">ID externe: ${m.external_id || 'Aucun'}</div>
+              </div>
+              <div class="search-match-score">${(m.similarity * 100).toFixed(1)}%</div>
+            `;
+            matchesList.appendChild(el);
+          });
+        }
+
+        resBox.style.display = 'block';
+      } catch (err) {
+        alert('Erreur: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>🚀 Lancer la Recherche Vectorielle</span>';
+      }
+    }
+
+    // Fetch Audit
+    async function fetchAuditDetail() {
+      const id = document.getElementById('audit-id-input').value.trim();
+      if (!id) {
+        alert('Veuillez entrer un ID de vérification.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/v1/verifications/${id}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Audit non trouvé');
+
+        const grid = document.getElementById('audit-summary-grid');
+        grid.innerHTML = `
+          <div class="metric-box"><div class="metric-name">Statut Match</div><div class="metric-val">${data.matched ? '✅ Match' : '❌ Refusé'}</div></div>
+          <div class="metric-box"><div class="metric-name">Score Similarité</div><div class="metric-val">${(data.similarity * 100).toFixed(1)}%</div></div>
+          <div class="metric-box"><div class="metric-name">Seuil appliqué</div><div class="metric-val">${data.threshold}</div></div>
+          <div class="metric-box"><div class="metric-name">Horodatage</div><div class="metric-val">${new Date(data.timestamp).toLocaleString('fr-FR')}</div></div>
+        `;
+
+        document.getElementById('audit-json').innerText = JSON.stringify(data.payload, null, 2);
+        document.getElementById('result-audit').style.display = 'block';
+      } catch (err) {
+        alert('Erreur: ' + err.message);
+      }
+    }
+  </script>
+</body>
+</html>
