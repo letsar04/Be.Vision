@@ -11,14 +11,17 @@ class SupabaseRepository:
         if self.client is None: self.client=await acreate_client(self.url,self.key)
     async def _db(self):
         await self.connect(); assert self.client is not None; return self.client
+
     async def resolve_tenant(self, tenant_ref: str)->str:
         db=await self._db()
         try:
-            tenant_uuid=str(uuid.UUID(tenant_ref)); row=await db.table("tenants").select("id").eq("id",tenant_uuid).single().execute()
+            tenant_uuid=str(uuid.UUID(tenant_ref))
+            row=await db.table("tenants").select("id").eq("id",tenant_uuid).single().execute()
         except ValueError:
             row=await db.table("tenants").select("id").eq("slug",tenant_ref).single().execute()
         if not row.data: raise ValueError(f"Tenant '{tenant_ref}' not found")
         return row.data["id"]
+
     async def ensure_identity(self, tenant_ref:str, identity_ref:str, metadata:dict[str,Any]|None=None)->str:
         db=await self._db(); tenant_id=await self.resolve_tenant(tenant_ref)
         existing=await db.table("identities").select("id").eq("tenant_id",tenant_id).eq("external_id",identity_ref).limit(1).execute()
@@ -27,11 +30,13 @@ class SupabaseRepository:
         result=await db.table("identities").insert({"tenant_id":tenant_id,"external_id":identity_ref,"display_name":str(metadata.get("name") or identity_ref),"metadata":metadata}).execute()
         if not result.data: raise RuntimeError("Failed to create identity")
         return result.data[0]["id"]
+
     async def create_enrollment(self,tenant_ref:str,identity_ref:str,enrollment_id:str,model:str,model_version:str|None,quality:Any,metadata:dict[str,Any]|None=None):
         db=await self._db(); tenant_id=await self.resolve_tenant(tenant_ref); identity_uuid=await self.ensure_identity(tenant_ref,identity_ref,metadata)
         result=await db.table("identity_enrollments").insert({"id":enrollment_id,"tenant_id":tenant_id,"identity_id":identity_uuid,"model":model,"model_version":model_version,"vector_ref":enrollment_id,"quality":quality.get("score") if isinstance(quality,dict) else quality,"metadata":metadata or {}}).execute()
         if not result.data: raise RuntimeError("Failed to persist enrollment")
         return result.data[0]
+
     async def create_vision_event(self,event:dict[str,Any]):
         db=await self._db()
         tenant_id=await self.resolve_tenant(str(event.get("metadata",{}).get("tenant_id","default")))
@@ -57,3 +62,32 @@ class SupabaseRepository:
         }).execute()
         if not result.data: raise RuntimeError("Failed to persist vision event")
         return result.data[0]
+
+    async def list_cameras(self, tenant_ref:str):
+        db=await self._db(); tenant_id=await self.resolve_tenant(tenant_ref)
+        result=await db.table("cameras").select("id,name,source_type,source_uri,zone,enabled,metadata,created_at").eq("tenant_id",tenant_id).order("created_at").execute()
+        return result.data or []
+
+    async def get_camera(self, tenant_ref:str, camera_id:str):
+        db=await self._db(); tenant_id=await self.resolve_tenant(tenant_ref)
+        result=await db.table("cameras").select("id,name,source_type,source_uri,zone,enabled,metadata,created_at").eq("tenant_id",tenant_id).eq("id",camera_id).limit(1).execute()
+        return result.data[0] if result.data else None
+
+    async def update_camera(self, tenant_ref:str, camera_id:str, values:dict[str,Any]):
+        db=await self._db(); tenant_id=await self.resolve_tenant(tenant_ref)
+        allowed={k:v for k,v in values.items() if k in {"name","source_type","source_uri","zone","enabled","metadata"}}
+        if not allowed: return await self.get_camera(tenant_ref,camera_id)
+        result=await db.table("cameras").update(allowed).eq("tenant_id",tenant_id).eq("id",camera_id).execute()
+        return result.data[0] if result.data else None
+
+    async def delete_camera(self, tenant_ref:str, camera_id:str):
+        db=await self._db(); tenant_id=await self.resolve_tenant(tenant_ref)
+        result=await db.table("cameras").delete().eq("tenant_id",tenant_id).eq("id",camera_id).execute()
+        return bool(result.data)
+
+    async def list_events(self, tenant_ref:str, camera_id:str|None=None, limit:int=50):
+        db=await self._db(); tenant_id=await self.resolve_tenant(tenant_ref)
+        query=db.table("vision_events").select("id,type,occurred_at,camera_id,subject_id,confidence,signals,model,model_version,metadata").eq("tenant_id",tenant_id).order("occurred_at",desc=True).limit(limit)
+        if camera_id: query=query.eq("camera_id",camera_id)
+        result=await query.execute()
+        return result.data or []
