@@ -267,16 +267,19 @@ async def stop_camera(camera_id: str):
 @app.get("/api/v1/events/stream")
 async def stream_vision_events(tenant_id: str="default", camera_id: str|None=None):
     async def generator():
-        last_id = None
+        seen_ids: set[str] = set()
         while True:
             try:
                 rows = await persistence.list_events(tenant_id, camera_id, 10) if persistence else []
                 rows = list(reversed(rows))
                 for row in rows:
-                    if last_id is None or str(row.get("id")) != str(last_id):
-                        last_id = row.get("id")
+                    row_id = str(row.get("id"))
+                    if row_id not in seen_ids:
+                        seen_ids.add(row_id)
                         payload = json.dumps(row, default=str)
                         yield f"data: {payload}\\n\\n"
+                if len(seen_ids) > 200:
+                    seen_ids = {str(row.get("id")) for row in rows}
                 await asyncio.sleep(1)
             except asyncio.CancelledError:
                 break
