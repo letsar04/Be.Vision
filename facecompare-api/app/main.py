@@ -5,6 +5,7 @@ import os
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
+import asyncio
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
@@ -262,6 +263,27 @@ async def start_camera(camera_id: str, payload: dict|None=None):
 @app.post("/api/v1/cameras/{camera_id}/stop")
 async def stop_camera(camera_id: str):
     return await camera_manager.stop(camera_id)
+
+@app.get("/api/v1/events/stream")
+async def stream_vision_events(tenant_id: str="default", camera_id: str|None=None):
+    async def generator():
+        last_id = None
+        while True:
+            try:
+                rows = await persistence.list_events(tenant_id, camera_id, 10) if persistence else []
+                rows = list(reversed(rows))
+                for row in rows:
+                    if last_id is None or str(row.get("id")) != str(last_id):
+                        last_id = row.get("id")
+                        payload = json.dumps(row, default=str)
+                        yield f"data: {payload}\\n\\n"
+                await asyncio.sleep(1)
+            except asyncio.CancelledError:
+                break
+            except Exception as exc:
+                yield f"event: error\\ndata: {json.dumps({\"error\": str(exc)})}\\n\\n"
+                await asyncio.sleep(2)
+    return StreamingResponse(generator(), media_type="text/event-stream", headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"})
 
 @app.get("/api/v1/events")
 async def list_vision_events(tenant_id: str="default", camera_id: str|None=None, limit: int=50):
