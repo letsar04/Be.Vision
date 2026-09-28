@@ -3,7 +3,7 @@
 <style>body{font-family:system-ui;margin:0;background:#0b0f14;color:#e9eef5}header{padding:18px 24px;border-bottom:1px solid #26303a}main{padding:20px;max-width:1200px;margin:auto}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}.card{background:#151b22;border:1px solid #27323d;border-radius:14px;padding:14px}.feed{width:100%;aspect-ratio:16/9;object-fit:cover;background:#000;border-radius:10px}.online{color:#71e39a}.offline{color:#ff8c8c}button,input,select{padding:10px;border-radius:8px;border:1px solid #394552;background:#111820;color:#fff}button{cursor:pointer}.hint{background:#111820;padding:12px;border-radius:10px;margin-bottom:18px;color:#b9c4d0}</style></head>
 <body><header><strong>Be.Vision Control Center</strong> <span id="summary"></span></header>
 <main><div class="hint">📱 <b>Téléphone :</b> crée une caméra « Téléphone », puis « Ouvrir sur téléphone ». Pour un téléphone en mode IP Camera/RTSP, choisis « RTSP/IP » et colle l’URL RTSP. &nbsp; 💻 <b>Webcam :</b> choisis « Webcam USB ».</div>
-<div style="margin-bottom:18px"><input id="name" placeholder="Nom caméra"><select id="type"><option value="phone">Téléphone navigateur</option><option value="rtsp">RTSP/IP</option><option value="webcam">Webcam USB</option></select><input id="uri" placeholder="rtsp://… ou index webcam (0)" value=""><button onclick="add()">Ajouter</button></div><div id="grid" class="grid"></div></main>
+<div style="margin-bottom:18px"><input id="name" placeholder="Nom caméra"><select id="type"><option value="phone">Téléphone navigateur</option><option value="rtsp">RTSP/IP</option><option value="webcam">Webcam USB</option></select><input id="uri" placeholder="rtsp://… ou index webcam (0)" value=""><button onclick="add()">Ajouter</button></div><div id="grid" class="grid"></div><h2>Événements récents</h2><div id="events" class="card">Chargement…</div></main>
 <script>
 let cameras=[];
 async function load(){try{const r=await fetch("/api/v1/cameras?tenant_id=default");if(!r.ok)throw 0;cameras=await r.json();render()}catch(e){document.getElementById("summary").textContent=" — API indisponible"}}
@@ -16,5 +16,5 @@ async function start(id){const r=await fetch("/api/v1/cameras/"+id+"/start",{met
 async function stopCam(id){await fetch("/api/v1/cameras/"+id+"/stop",{method:"POST"});load()}
 function openPhone(id){window.open(location.origin+"/camera/phone?camera_id="+encodeURIComponent(id)+"&tenant_id=default","_blank")}
 function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
-load();setInterval(load,5000);
+async function events(){try{const r=await fetch("/api/v1/events?tenant_id=default&limit=30"),e=await r.json();document.getElementById("events").innerHTML=e.length?e.map(x=>"<div style=\"padding:8px 0;border-bottom:1px solid #27323d\"><b>"+esc(x.type)+"</b> — "+new Date(x.occurred_at).toLocaleString()+" — "+(x.confidence!=null?Number(x.confidence).toFixed(2):"")+" </div>").join(""):"Aucun événement"}catch{}} load();events();setInterval(load,5000);setInterval(events,2000);
 </script></body></html>
