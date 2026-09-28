@@ -320,7 +320,8 @@ async def stream_vision_events(tenant_id: str="default", camera_id: str|None=Non
             except asyncio.CancelledError:
                 break
             except Exception as exc:
-                yield f"event: error\\ndata: {json.dumps({\"error\": str(exc)})}\\n\\n"
+                payload = json.dumps({"error": str(exc)})
+                yield f"event: error\\ndata: {payload}\\n\\n"
                 await asyncio.sleep(2)
     return StreamingResponse(generator(), media_type="text/event-stream", headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"})
 
