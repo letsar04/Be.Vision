@@ -22,7 +22,7 @@ class CameraState:
     analyzing: bool = False
     last_analysis: float = 0.0
     last_event: dict[str, Any] | None = None
-    task: asyncio.Task | None = field(default=None, repr=False)
+    task: asyncio.Task | None = field(default=None, repr=False)\n    analysis_task: asyncio.Task | None = field(default=None, repr=False)
 
 
 class CameraManager:
@@ -61,7 +61,7 @@ class CameraManager:
         ):
             state.analyzing = True
             state.last_analysis = now
-            state.task = asyncio.create_task(self._analyze(state, frame, tenant_id))
+            state.analysis_task = asyncio.create_task(self._analyze(state, frame, tenant_id))
         return self.status(camera_id)
 
     async def _analyze(self, state: CameraState, frame: bytes, tenant_id: str):
@@ -83,7 +83,7 @@ class CameraManager:
         if not state:
             return {"camera_id": camera_id, "online": False, "running": False}
 
-        running = bool(state.task and not state.task.done())
+        running = bool(state.task and not state.task.done())\n        analysis_running = bool(state.analysis_task and not state.analysis_task.done())
         online = time.time() - state.updated_at < 5
         return {
             "camera_id": state.camera_id,
@@ -92,7 +92,7 @@ class CameraManager:
             "running": running,
             "updated_at": state.updated_at,
             "frames": state.frames,
-            "analyzing": state.analyzing,
+            "analyzing": analysis_running,
             "last_event": state.last_event,
         }
 
