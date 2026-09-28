@@ -264,6 +264,42 @@ async def start_camera(camera_id: str, payload: dict|None=None):
 async def stop_camera(camera_id: str):
     return await camera_manager.stop(camera_id)
 
+@app.get("/api/v1/attendance")
+async def list_attendance(tenant_id: str = "default", work_date: str | None = None, limit: int = 200):
+    if not persistence: raise HTTPException(503, "Supabase persistence is not configured")
+    return await persistence.list_attendance(tenant_id, work_date, max(1, min(limit, 500)))
+
+@app.get("/api/v1/policies")
+async def list_policies(tenant_id: str = "default"):
+    if not persistence: raise HTTPException(503, "Supabase persistence is not configured")
+    return await persistence.list_policies(tenant_id)
+
+@app.post("/api/v1/policies")
+async def create_policy(payload: dict):
+    if not persistence: raise HTTPException(503, "Supabase persistence is not configured")
+    name = str(payload.get("name") or "Policy")
+    definition = payload.get("definition") or {}
+    if not isinstance(definition, dict): raise HTTPException(422, "definition must be an object")
+    return await persistence.create_policy(str(payload.get("tenant_id", "default")), name, definition, bool(payload.get("enabled", True)))
+
+@app.patch("/api/v1/policies/{policy_id}")
+async def update_policy(policy_id: str, payload: dict):
+    if not persistence: raise HTTPException(503, "Supabase persistence is not configured")
+    result = await persistence.update_policy(str(payload.get("tenant_id", "default")), policy_id, payload)
+    if not result: raise HTTPException(404, "Policy not found")
+    return result
+
+@app.delete("/api/v1/policies/{policy_id}")
+async def delete_policy(policy_id: str, tenant_id: str = "default"):
+    if not persistence: raise HTTPException(503, "Supabase persistence is not configured")
+    if not await persistence.delete_policy(tenant_id, policy_id): raise HTTPException(404, "Policy not found")
+    return {"policy_id": policy_id, "deleted": True}
+
+@app.post("/api/v1/actions/notify")
+async def create_notification_action(payload: dict):
+    if not persistence: raise HTTPException(503, "Supabase persistence is not configured")
+    return await persistence.create_action(str(payload.get("tenant_id", "default")), str(payload.get("action_type", "notify")), payload.get("payload") or {}, event_id=payload.get("event_id"))
+
 @app.get("/api/v1/events/stream")
 async def stream_vision_events(tenant_id: str="default", camera_id: str|None=None):
     async def generator():
