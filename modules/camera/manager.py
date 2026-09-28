@@ -22,7 +22,8 @@ class CameraState:
     analyzing: bool = False
     last_analysis: float = 0.0
     last_event: dict[str, Any] | None = None
-    task: asyncio.Task | None = field(default=None, repr=False)\n    analysis_task: asyncio.Task | None = field(default=None, repr=False)
+    task: asyncio.Task | None = field(default=None, repr=False)
+    analysis_task: asyncio.Task | None = field(default=None, repr=False)
 
 
 class CameraManager:
@@ -83,7 +84,8 @@ class CameraManager:
         if not state:
             return {"camera_id": camera_id, "online": False, "running": False}
 
-        running = bool(state.task and not state.task.done())\n        analysis_running = bool(state.analysis_task and not state.analysis_task.done())
+        running = bool(state.task and not state.task.done())
+        analysis_running = bool(state.analysis_task and not state.analysis_task.done())
         online = time.time() - state.updated_at < 5
         return {
             "camera_id": state.camera_id,
@@ -147,13 +149,18 @@ class CameraManager:
 
     async def stop(self, camera_id: str):
         state = self.cameras.get(camera_id)
-        if state and state.task:
-            state.task.cancel()
-            try:
-                await state.task
-            except asyncio.CancelledError:
-                pass
-            state.task = None
+        if not state:
+            return self.status(camera_id)
+        for task_name in ("task", "analysis_task"):
+            task = getattr(state, task_name)
+            if task and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+            setattr(state, task_name, None)
+        state.analyzing = False
         return self.status(camera_id)
 
     def stream(self, camera_id: str):
