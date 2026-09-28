@@ -88,6 +88,24 @@ class SupabaseRepository:
         result = await query.execute()
         return result.data or []
 
+
+    async def create_policy(self, tenant_ref: str, name: str, definition: dict[str, Any], enabled: bool = True):
+        db = await self._db(); tenant_id = await self.resolve_tenant(tenant_ref)
+        result = await db.table("policies").insert({"tenant_id": tenant_id, "name": name, "definition": definition, "enabled": enabled}).execute()
+        return result.data[0] if result.data else None
+
+    async def update_policy(self, tenant_ref: str, policy_id: str, values: dict[str, Any]):
+        db = await self._db(); tenant_id = await self.resolve_tenant(tenant_ref)
+        allowed = {k: v for k, v in values.items() if k in {"name", "definition", "enabled"}}
+        if not allowed: return None
+        result = await db.table("policies").update(allowed).eq("tenant_id", tenant_id).eq("id", policy_id).execute()
+        return result.data[0] if result.data else None
+
+    async def delete_policy(self, tenant_ref: str, policy_id: str):
+        db = await self._db(); tenant_id = await self.resolve_tenant(tenant_ref)
+        result = await db.table("policies").delete().eq("tenant_id", tenant_id).eq("id", policy_id).execute()
+        return bool(result.data)
+
     async def list_policies(self, tenant_ref: str):
         db = await self._db(); tenant_id = await self.resolve_tenant(tenant_ref)
         result = await db.table("policies").select("id,name,enabled,definition,created_at,updated_at").eq("tenant_id", tenant_id).order("created_at").execute()
