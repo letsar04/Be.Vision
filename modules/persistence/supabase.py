@@ -113,7 +113,7 @@ class SupabaseRepository:
 
     async def create_policy_evaluation(self, tenant_ref: str, policy_id: str, event_id: str | None, evaluation: dict[str, Any]):
         db = await self._db(); tenant_id = await self.resolve_tenant(tenant_ref)
-        row = {"tenant_id": tenant_id, "policy_id": policy_id, "event_id": event_id, "matched": bool(evaluation.get("matched")), "reasons": evaluation.get("reasons", []), "metadata": evaluation}
+        row = {"tenant_id": tenant_id, "policy_id": policy_id, "event_id": event_id, "matched": bool(evaluation.get("matched")), "reasons": evaluation.get("reasons", []), "evaluated_at": datetime.now().astimezone().isoformat()}
         result = await db.table("policy_evaluations").insert(row).execute()
         return result.data[0] if result.data else row
 
