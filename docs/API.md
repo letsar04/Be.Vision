@@ -102,3 +102,40 @@ Pipeline:
 The endpoint returns the canonical event plus recognition details. Product applications such as attendance and site monitoring should consume this event instead of duplicating recognition logic.
 
 The vector-memory adapter filters searches by `tenant_id`, and enrollment payloads carry the model and model-version metadata needed for later evaluation and migration.
+
+## Attendance
+
+`GET /api/v1/attendance?tenant_id=default&work_date=YYYY-MM-DD`
+
+Returns tenant-scoped daily attendance sessions. A recognized face creates an `arrival` event on the first observation of the day and `presence` events thereafter.
+
+## Policies
+
+```
+GET    /api/v1/policies
+POST   /api/v1/policies
+PATCH  /api/v1/policies/{policy_id}
+DELETE /api/v1/policies/{policy_id}
+```
+
+Policy definitions are deterministic and may use `event_types`, `allowed_identity_ids`, `schedule`, `required_signals`, `forbidden_signals`, `zones` and `actions`.
+
+Example:
+```json
+{
+  "name": "Restricted area after hours",
+  "tenant_id": "default",
+  "definition": {
+    "event_types": ["person.detected", "face.recognized"],
+    "schedule": {"start_hour": 18, "end_hour": 7},
+    "zones": ["restricted"],
+    "actions": [
+      {"type": "notify", "payload": {"channel": "operator"}}
+    ]
+  }
+}
+```
+
+## Actions
+
+`POST /api/v1/actions/notify` stores an auditable action request. Provider-specific delivery (push/SMS/siren) is intentionally implemented as an adapter layer rather than embedded in the Core.
