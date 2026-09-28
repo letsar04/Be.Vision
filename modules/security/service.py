@@ -19,6 +19,15 @@ class SecurityService:
             saved = await self.persistence.create_policy_evaluation(
                 tenant_ref, policy["id"], event.get("id"), evaluation
             )
+            item = {"policy": policy, "evaluation": evaluation, "record": saved, "actions": []}
             if evaluation["matched"]:
-                results.append({"policy": policy, "evaluation": evaluation, "record": saved})
+                for action in (policy.get("definition") or {}).get("actions", []):
+                    action_type = str(action.get("type", "notify"))
+                    payload = dict(action.get("payload") or {})
+                    payload.update({"policy_id": policy["id"], "reasons": evaluation["reasons"], "event": event})
+                    created = await self.persistence.create_action(
+                        tenant_ref, action_type, payload, event_id=event.get("id")
+                    )
+                    item["actions"].append(created)
+                results.append(item)
         return results
