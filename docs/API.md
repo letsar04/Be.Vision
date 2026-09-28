@@ -12,8 +12,14 @@ Initial product-neutral API surface.
 - POST /api/v1/cameras
 - GET /api/v1/cameras
 - GET /api/v1/cameras/{camera_id}
+- GET /api/v1/cameras/{camera_id}/status
+- GET /api/v1/cameras/{camera_id}/stream — MJPEG preview for the control center.
+- POST /api/v1/cameras/{camera_id}/frames — browser/phone frame ingestion.
+- POST /api/v1/cameras/{camera_id}/start
+- POST /api/v1/cameras/{camera_id}/stop
 - DELETE /api/v1/cameras/{camera_id}
 
+Camera sources: `phone` (browser camera), `rtsp` (IP/RTSP stream), and `webcam` (local USB camera). The browser phone mode requires HTTPS on the phone.\n
 Camera credentials must never be returned by the API.
 
 ## Identities
@@ -49,7 +55,7 @@ Applications should receive score and quality and apply an explicit acceptance p
 - POST /api/v1/events
 - GET /api/v1/events
 - GET /api/v1/events/{event_id}
-
+- GET /api/v1/events/stream — Server-Sent Events for live control-center updates.\n
 Canonical fields include type, occurred_at, camera_id, subject_id, confidence, signals, model and model_version.
 
 ## Policies
