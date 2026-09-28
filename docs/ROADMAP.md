@@ -2,36 +2,38 @@
 
 ## Phase 1 — Core foundation
 
-- [ ] Normalize repository structure
-- [ ] Extract InsightFace adapter from facecompare-api
-- [ ] Define Identity service
-- [ ] Define Qdrant repository
-- [ ] Add PostgreSQL persistence
-- [ ] Define canonical event schema
-- [ ] Add camera abstraction
-- [ ] Add policy engine
-- [ ] Add audit logging
-- [ ] Add API authentication and tenant isolation
+- [x] Normalize repository structure
+- [x] Extract InsightFace adapter from facecompare-api
+- [x] Define Identity service
+- [x] Define Qdrant repository
+- [x] Add PostgreSQL/Supabase persistence
+- [x] Define canonical event schema
+- [x] Add camera abstraction
+- [x] Add deterministic policy engine
+- [x] Add audit/action persistence
+- [ ] Add API authentication and tenant isolation for user-facing endpoints
 
 ## Phase 2 — Attendance MVP
 
-- [ ] Camera stream worker
-- [ ] Face detection/quality
-- [ ] Recognition against employee collection
-- [ ] Arrival/departure session logic
-- [ ] Daily attendance API
-- [ ] Web dashboard
-- [ ] Notifications
+- [x] Camera stream worker
+- [x] Face detection/quality
+- [x] Recognition against tenant-scoped identity vectors
+- [x] Arrival/presence session logic
+- [x] Daily attendance API
+- [x] Shared event pipeline
+- [ ] Web dashboard dedicated to attendance
+- [ ] Provider-specific push/SMS notification delivery
 
 ## Phase 3 — Site monitoring MVP
 
-- [ ] Zones and schedules
-- [ ] Observable event detectors
-- [ ] Policy evaluation
+- [x] Zones and schedules as policy inputs
+- [x] Observable event/policy foundation
+- [x] Policy evaluation persistence
+- [x] Auditable action creation
 - [ ] Alert cooldowns/deduplication
-- [ ] Mobile/web notification channel
-- [ ] Operator event timeline
-- [ ] Optional webhook for approved external actions
+- [ ] Mobile/web notification provider
+- [ ] Operator incident timeline
+- [ ] Optional controlled webhook execution
 
 ## Phase 4 — Agent layer
 
@@ -41,18 +43,21 @@
 - [ ] Explainable incident reports
 - [ ] Tool-based agent actions with permissions
 
-## Phase 5 — Scale
+## Phase 5 — Continuous learning and scale
 
+- [x] Versioned learning contracts and controlled promotion design
 - [ ] Event broker
 - [ ] GPU workers
 - [ ] Distributed camera workers
-- [ ] Model registry/versioning
+- [ ] Model registry/versioning implementation
 - [ ] Observability
 - [ ] Per-tenant quotas
 - [ ] HA Qdrant/PostgreSQL strategy
+- [ ] Dataset collection/feedback UI
+- [ ] Automated evaluation and promotion gates
 
-## First vertical slice
+## Current vertical slice
 
-Camera -> InsightFace -> Qdrant -> identity -> event -> policy -> notification.
+`Phone / RTSP / USB webcam → CameraManager → InsightFace → Qdrant → VisionEvent → Supabase → Attendance / Policy → Action`
 
-Once reliable, attendance and security become applications of the same Core.
+The Core is intentionally product-neutral: attendance, security monitoring and future AI-agent workflows consume the same canonical events and reusable modules.
