@@ -174,9 +174,11 @@ async def enroll_core_identity(image: UploadFile=File(...),identity_id: str=Form
 @app.get("/api/v1/cameras")
 async def list_cameras(tenant_id: str="default"):
     if not persistence: return []
-    tenant=await persistence.resolve_tenant(tenant_id)
-    result=await (await persistence._db()).table("cameras").select("id,name,source_type,zone,enabled,metadata,created_at").eq("tenant_id",tenant).order("created_at").execute()
-    return result.data or []
+    rows=await persistence.list_cameras(tenant_id)
+    for row in rows:
+        row.pop("source_uri", None)
+        row["runtime"]=camera_manager.status(str(row["id"]))
+    return rows
 
 @app.post("/api/v1/cameras")
 async def create_camera(payload: dict):
@@ -184,14 +186,48 @@ async def create_camera(payload: dict):
     tenant=await persistence.resolve_tenant(str(payload.get("tenant_id","default")))
     source_type=str(payload.get("source_type","phone"))
     if source_type not in {"phone","rtsp","webcam"}: raise HTTPException(400,"source_type must be phone, rtsp or webcam")
+    source_uri=payload.get("source_uri")
+    if source_type=="rtsp" and not source_uri: raise HTTPException(422,"RTSP camera requires source_uri")
+    if source_type=="webcam" and source_uri is None: source_uri="0"
     row={"tenant_id":tenant,"name":str(payload.get("name") or "Camera"),"source_type":source_type,
-         "source_uri":payload.get("source_uri"),"zone":payload.get("zone"),"enabled":bool(payload.get("enabled",True)),
+         "source_uri":source_uri,"zone":payload.get("zone"),"enabled":bool(payload.get("enabled",True)),
          "metadata":payload.get("metadata") or {}}
     result=await (await persistence._db()).table("cameras").insert(row).execute()
     if not result.data: raise HTTPException(502,"Failed to create camera")
     created=result.data[0]
     created.pop("source_uri", None)
     return created
+
+@app.get("/api/v1/cameras/{camera_id}")
+async def get_camera(camera_id: str, tenant_id: str="default"):
+    if not persistence: raise HTTPException(503,"Supabase persistence is not configured")
+    row=await persistence.get_camera(tenant_id,camera_id)
+    if not row: raise HTTPException(404,"Camera not found")
+    row.pop("source_uri",None)
+    row["runtime"]=camera_manager.status(camera_id)
+    return row
+
+@app.patch("/api/v1/cameras/{camera_id}")
+async def update_camera(camera_id: str, payload: dict):
+    if not persistence: raise HTTPException(503,"Supabase persistence is not configured")
+    tenant_id=str(payload.get("tenant_id","default"))
+    source_type=payload.get("source_type")
+    if source_type is not None and source_type not in {"phone","rtsp","webcam"}:
+        raise HTTPException(400,"source_type must be phone, rtsp or webcam")
+    if source_type=="rtsp" and not payload.get("source_uri"):
+        raise HTTPException(422,"RTSP camera requires source_uri")
+    await camera_manager.stop(camera_id)
+    row=await persistence.update_camera(tenant_id,camera_id,payload)
+    if not row: raise HTTPException(404,"Camera not found")
+    row.pop("source_uri",None)
+    return row
+
+@app.delete("/api/v1/cameras/{camera_id}")
+async def delete_camera(camera_id: str, tenant_id: str="default"):
+    if not persistence: raise HTTPException(503,"Supabase persistence is not configured")
+    await camera_manager.stop(camera_id)
+    if not await persistence.delete_camera(tenant_id,camera_id): raise HTTPException(404,"Camera not found")
+    return {"camera_id":camera_id,"deleted":True}
 
 @app.get("/api/v1/cameras/{camera_id}/status")
 async def camera_status(camera_id: str):
@@ -210,18 +246,25 @@ async def ingest_camera_frame(camera_id: str, frame: UploadFile=File(...), tenan
 @app.post("/api/v1/cameras/{camera_id}/start")
 async def start_camera(camera_id: str, payload: dict|None=None):
     if not persistence: raise HTTPException(503,"Supabase persistence is not configured")
-    tenant_ref=str((payload or {}).get("tenant_id","default")); tenant=await persistence.resolve_tenant(tenant_ref)
-    row=(await (await persistence._db()).table("cameras").select("id,source_type,source_uri,enabled").eq("id",camera_id).eq("tenant_id",tenant).single().execute()).data
+    tenant_ref=str((payload or {}).get("tenant_id","default"))
+    row=await persistence.get_camera(tenant_ref,camera_id)
     if not row: raise HTTPException(404,"Camera not found")
     if not row.get("enabled"): raise HTTPException(409,"Camera is disabled")
     if row["source_type"]=="rtsp":
         if not row.get("source_uri"): raise HTTPException(422,"RTSP camera has no source_uri")
         return await camera_manager.start_opencv(camera_id,row["source_uri"],tenant_ref)
     if row["source_type"]=="webcam":
-        device=int((row.get("source_uri") or "0").replace("webcam:",""))
+        try: device=int((row.get("source_uri") or "0").replace("webcam:",""))
+        except ValueError: raise HTTPException(422,"Webcam source_uri must be an integer device index")
         return await camera_manager.start_opencv(camera_id,device,tenant_ref)
     return {"camera_id":camera_id,"mode":"phone","message":"Open /camera/phone?camera_id="+camera_id+"&tenant_id="+tenant_ref}
 
 @app.post("/api/v1/cameras/{camera_id}/stop")
 async def stop_camera(camera_id: str):
     return await camera_manager.stop(camera_id)
+
+@app.get("/api/v1/events")
+async def list_vision_events(tenant_id: str="default", camera_id: str|None=None, limit: int=50):
+    if not persistence: return []
+    limit=max(1,min(limit,200))
+    return await persistence.list_events(tenant_id,camera_id,limit)
