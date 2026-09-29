@@ -44,6 +44,8 @@ services:
     environment:
       - INSIGHTFACE_URL=http://insightface:8080
       - QDRANT_URL=http://qdrant:6333
+      - SUPABASE_URL=https://wrozxsbdafrrksgbvptl.supabase.co
+      - SUPABASE_SECRET_KEY=${SUPABASE_SECRET_KEY}
       - DEFAULT_MATCH_THRESHOLD=0.60
     depends_on:
       qdrant:

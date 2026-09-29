@@ -1,0 +1,25 @@
+name: Be.Vision CI
+
+on:
+  push:
+    branches: ["main", "refactor/be-vision-core"]
+  pull_request:
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: facecompare-api
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: facecompare-api/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: python -m compileall app ../core ../modules
+      - run: pytest -q ../tests
