@@ -1,20 +1,164 @@
 <!doctype html>
-<html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Be.Vision Control Center</title>
-<style>body{font-family:system-ui;margin:0;background:#0b0f14;color:#e9eef5}header{padding:18px 24px;border-bottom:1px solid #26303a}main{padding:20px;max-width:1200px;margin:auto}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}.card{background:#151b22;border:1px solid #27323d;border-radius:14px;padding:14px}.feed{width:100%;aspect-ratio:16/9;object-fit:cover;background:#000;border-radius:10px}.online{color:#71e39a}.offline{color:#ff8c8c}button,input,select{padding:10px;border-radius:8px;border:1px solid #394552;background:#111820;color:#fff}button{cursor:pointer}.hint{background:#111820;padding:12px;border-radius:10px;margin-bottom:18px;color:#b9c4d0}</style></head>
-<body><header><strong>Be.Vision Control Center</strong> <span id="summary"></span></header>
-<main><div class="hint">📱 <b>Téléphone :</b> crée une caméra « Téléphone », puis « Ouvrir sur téléphone ». Pour un téléphone en mode IP Camera/RTSP, choisis « RTSP/IP » et colle l’URL RTSP. &nbsp; 💻 <b>Webcam :</b> choisis « Webcam USB ».</div>
-<div style="margin-bottom:18px"><input id="name" placeholder="Nom caméra"><select id="type"><option value="phone">Téléphone navigateur</option><option value="rtsp">RTSP/IP</option><option value="webcam">Webcam USB</option></select><input id="uri" placeholder="rtsp://… ou index webcam (0)" value=""><button onclick="add()">Ajouter</button></div><div id="grid" class="grid"></div><h2>Événements récents</h2><div id="events" class="card">Chargement…</div></main>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Be.Vision Control Center</title>
+  <style>
+    body{font-family:system-ui;margin:0;background:#0b0f14;color:#e9eef5}
+    header{padding:18px 24px;border-bottom:1px solid #26303a}
+    main{padding:20px;max-width:1200px;margin:auto}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+    .card{background:#151b22;border:1px solid #27323d;border-radius:14px;padding:14px}
+    .feed{width:100%;aspect-ratio:16/9;object-fit:cover;background:#000;border-radius:10px}
+    .online{color:#71e39a}.offline{color:#ff8c8c}
+    button,input,select{padding:10px;border-radius:8px;border:1px solid #394552;background:#111820;color:#fff}
+    button{cursor:pointer}.hint{background:#111820;padding:12px;border-radius:10px;margin-bottom:18px;color:#b9c4d0}
+  </style>
+</head>
+<body>
+<header><strong>Be.Vision Control Center</strong> <span id="summary"></span></header>
+<main>
+  <div class="hint">📱 <b>Téléphone :</b> crée une caméra « Téléphone », puis « Ouvrir sur téléphone ». Pour un téléphone en mode IP Camera/RTSP, choisis « RTSP/IP » et colle l’URL RTSP. &nbsp; 💻 <b>Webcam :</b> choisis « Webcam USB ».</div>
+  <div style="margin-bottom:18px">
+    <input id="name" placeholder="Nom caméra">
+    <select id="type">
+      <option value="phone">Téléphone navigateur</option>
+      <option value="rtsp">RTSP/IP</option>
+      <option value="webcam">Webcam USB</option>
+    </select>
+    <input id="uri" placeholder="rtsp://… ou index webcam (0)" value="">
+    <button onclick="add()">Ajouter</button>
+  </div>
+  <div id="grid" class="grid"></div>
+  <h2>Événements récents</h2>
+  <div id="events" class="card">Chargement…</div>
+</main>
 <script>
 let cameras=[];
-async function load(){try{const r=await fetch("/api/v1/cameras?tenant_id=default");if(!r.ok)throw 0;cameras=await r.json();render()}catch(e){document.getElementById("summary").textContent=" — API indisponible"}}
-function render(){document.getElementById("summary").textContent=cameras.length+" caméra(s)";const g=document.getElementById("grid");
-g.innerHTML=cameras.map(c=>'<div class="card"><h3>'+esc(c.name)+'</h3><p>'+esc(c.source_type)+' — <span id="s-'+c.id+'">…</span></p><img class="feed" src="/api/v1/cameras/'+c.id+'/stream"><p id="e-'+c.id+'">Aucun événement</p><button onclick="openPhone(\''+c.id+'\')">Ouvrir sur téléphone</button> <button onclick="start(\''+c.id+'\')">Démarrer</button> <button onclick="stopCam(\''+c.id+'\')">Arrêter</button></div>').join("");
-cameras.forEach(c=>{if(c.source_type==="rtsp")start(c);poll(c)})}
-async function poll(c){try{const s=await(await fetch("/api/v1/cameras/"+c.id+"/status")).json(),el=document.getElementById("s-"+c.id);if(!el)return;el.className=s.online?"online":"offline";el.textContent=s.online?"EN LIGNE":"HORS LIGNE";if(s.last_event?.event){const e=s.last_event.event;document.getElementById("e-"+c.id).textContent=e.type+(e.confidence!=null?" — "+Number(e.confidence).toFixed(2):"")}}catch{}setTimeout(()=>poll(c),1500)}
-async function add(){const type=document.getElementById("type").value;const body={name:document.getElementById("name").value||"Camera",source_type:type,source_uri:document.getElementById("uri").value||null,tenant_id:"default"};const r=await fetch("/api/v1/cameras",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});if(!r.ok){alert(await r.text());return}document.getElementById("name").value="";document.getElementById("uri").value="";await load()}
-async function start(id){const r=await fetch("/api/v1/cameras/"+id+"/start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tenant_id:"default"})});if(!r.ok)alert(await r.text())}
-async function stopCam(id){await fetch("/api/v1/cameras/"+id+"/stop",{method:"POST"});load()}
-function openPhone(id){window.open(location.origin+"/camera/phone?camera_id="+encodeURIComponent(id)+"&tenant_id=default","_blank")}
-function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
-async function events(){try{const r=await fetch("/api/v1/events?tenant_id=default&limit=30"),e=await r.json();renderEvents(e)}catch{}}\nfunction renderEvents(e){document.getElementById("events").innerHTML=e.length?e.map(x=>"<div style=\"padding:8px 0;border-bottom:1px solid #27323d\"><b>"+esc(x.type)+"</b> — "+new Date(x.occurred_at).toLocaleString()+" — "+(x.confidence!=null?Number(x.confidence).toFixed(2):"")+" </div>").join(""):"Aucun événement"}\nfunction liveEvents(){if(!window.EventSource)return;const es=new EventSource("/api/v1/events/stream?tenant_id=default");es.onmessage=ev=>{try{const item=JSON.parse(ev.data);const box=document.getElementById("events");const div=document.createElement("div");div.style.cssText="padding:8px 0;border-bottom:1px solid #27323d";div.innerHTML="<b>"+esc(item.type)+"</b> — "+new Date(item.occurred_at).toLocaleString()+" — "+(item.confidence!=null?Number(item.confidence).toFixed(2):"");box.prepend(div);while(box.children.length>30)box.lastElementChild.remove()}catch{}};es.onerror=()=>{es.close();setTimeout(liveEvents,3000)}}\nload();events();liveEvents();setInterval(load,5000);
-</script></body></html>
+
+async function load(){
+  try{
+    const r=await fetch("/api/v1/cameras?tenant_id=default");
+    if(!r.ok) throw new Error(await r.text());
+    cameras=await r.json();
+    render();
+  }catch(e){
+    document.getElementById("summary").textContent=" — API indisponible";
+    console.error("Impossible de charger les caméras:",e);
+  }
+}
+
+function render(){
+  document.getElementById("summary").textContent=cameras.length+" caméra(s)";
+  const g=document.getElementById("grid");
+  g.innerHTML=cameras.map(c=>'<div class="card"><h3>'+esc(c.name)+'</h3><p>'+esc(c.source_type)+' — <span id="s-'+c.id+'">…</span></p><img class="feed" src="/api/v1/cameras/'+c.id+'/stream"><p id="e-'+c.id+'">Aucun événement</p><button onclick="openPhone(\''+c.id+'\')">Ouvrir sur téléphone</button> <button onclick="start(\''+c.id+'\')">Démarrer</button> <button onclick="stopCam(\''+c.id+'\')">Arrêter</button></div>').join("");
+  cameras.forEach(c=>{if(c.source_type==="rtsp") start(c); poll(c)});
+}
+
+async function poll(c){
+  try{
+    const s=await(await fetch("/api/v1/cameras/"+c.id+"/status")).json();
+    const el=document.getElementById("s-"+c.id);
+    if(!el) return;
+    el.className=s.online?"online":"offline";
+    el.textContent=s.online?"EN LIGNE":"HORS LIGNE";
+    if(s.last_event?.event){
+      const e=s.last_event.event;
+      document.getElementById("e-"+c.id).textContent=e.type+(e.confidence!=null?" — "+Number(e.confidence).toFixed(2):"");
+    }
+  }catch(e){}
+  setTimeout(()=>poll(c),1500);
+}
+
+async function add(){
+  const type=document.getElementById("type").value;
+  const body={
+    name:document.getElementById("name").value||"Camera",
+    source_type:type,
+    source_uri:document.getElementById("uri").value||null,
+    tenant_id:"default"
+  };
+  try{
+    const r=await fetch("/api/v1/cameras",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(body)
+    });
+    if(!r.ok){
+      const message=await r.text();
+      alert("Impossible de créer la caméra :\n\n"+message);
+      console.error("Création caméra:",r.status,message);
+      return;
+    }
+    document.getElementById("name").value="";
+    document.getElementById("uri").value="";
+    await load();
+  }catch(e){
+    alert("Erreur réseau lors de la création de la caméra.");
+    console.error(e);
+  }
+}
+
+async function start(id){
+  const r=await fetch("/api/v1/cameras/"+id+"/start",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({tenant_id:"default"})
+  });
+  if(!r.ok) alert(await r.text());
+}
+
+async function stopCam(id){
+  await fetch("/api/v1/cameras/"+id+"/stop",{method:"POST"});
+  load();
+}
+
+function openPhone(id){
+  window.open(location.origin+"/camera/phone?camera_id="+encodeURIComponent(id)+"&tenant_id=default","_blank");
+}
+
+function esc(v){
+  return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+}
+
+async function events(){
+  try{
+    const r=await fetch("/api/v1/events?tenant_id=default&limit=30");
+    const e=await r.json();
+    renderEvents(e);
+  }catch(e){}
+}
+
+function renderEvents(e){
+  document.getElementById("events").innerHTML=e.length
+    ?e.map(x=>"<div style=\"padding:8px 0;border-bottom:1px solid #27323d\"><b>"+esc(x.type)+"</b> — "+new Date(x.occurred_at).toLocaleString()+" — "+(x.confidence!=null?Number(x.confidence).toFixed(2):"")+" </div>").join("")
+    :"Aucun événement";
+}
+
+function liveEvents(){
+  if(!window.EventSource) return;
+  const es=new EventSource("/api/v1/events/stream?tenant_id=default");
+  es.onmessage=ev=>{
+    try{
+      const item=JSON.parse(ev.data);
+      const box=document.getElementById("events");
+      const div=document.createElement("div");
+      div.style.cssText="padding:8px 0;border-bottom:1px solid #27323d";
+      div.innerHTML="<b>"+esc(item.type)+"</b> — "+new Date(item.occurred_at).toLocaleString()+" — "+(item.confidence!=null?Number(item.confidence).toFixed(2):"");
+      box.prepend(div);
+      while(box.children.length>30) box.lastElementChild.remove();
+    }catch(e){}
+  };
+  es.onerror=()=>{
+    es.close();
+    setTimeout(liveEvents,3000);
+  };
+}
+
+load();
+events();
+liveEvents();
+setInterval(load,5000);
+</script>
+</body>
+</html>
