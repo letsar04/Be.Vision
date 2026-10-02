@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "../../../../../lib/supabase-server";
-import { getApiContext } from "../../../../lib/api-auth";
+import { getApiContext } from "../../../../../lib/api-auth";
 import { remoteResourceOperation } from "../../../../../lib/federated-open-data";
 
 export const runtime = "nodejs";
