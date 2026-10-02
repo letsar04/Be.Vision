@@ -1,0 +1,4 @@
+matricule,nom_complet,departement,fonction,telephone,email,site,consent_recorded,photo
+EMP-001,Awa Traore,RH,Assistante,70000000,awa@example.com,Siège,oui,EMP-001.jpg
+EMP-002,Moussa Kabore,Production,Opérateur,71000000,moussa@example.com,Usine,oui,EMP-002.jpg
+EMP-003,Idrissa Zongo,Logistique,Magasinier,72000000,idrissa@example.com,Entrepôt,oui,EMP-003.jpg
