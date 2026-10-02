@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "../../../lib/supabase-server";
-import { getApiContext } from "../../../lib/api-auth";
-import { writeAudit } from "../../../lib/audit";
+import { createServerClient } from "../../../../lib/supabase-server";
+import { getApiContext } from "../../../../lib/api-auth";
+import { writeAudit } from "../../../../lib/audit";
 
 type ImportRow = {
   external_id?: string;
