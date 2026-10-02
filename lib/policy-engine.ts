@@ -19,6 +19,7 @@ function matchesRule(rule: any, event: VisionEvent) {
 
   if (eventTypes && !eventTypes.includes(event.type)) return false;
   if (rule.min_confidence != null && (event.confidence ?? 0) < Number(rule.min_confidence)) return false;
+  if (rule.max_confidence != null && event.confidence != null && event.confidence > Number(rule.max_confidence)) return false;
 
   const zones = Array.isArray(rule.zones) ? rule.zones : rule.zone ? [rule.zone] : null;
   if (zones && zones.length && !zones.includes(event.metadata?.zone)) return false;
