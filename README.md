@@ -76,3 +76,16 @@ Les secrets ne doivent jamais être préfixés par NEXT_PUBLIC_ ni commités.
 ## Roadmap entreprise
 
 Les prochains blocs sont le contrôle d’accès matériel, le monitoring avancé des caméras, les connecteurs NVR/VMS, les notifications multicanales, les rapports exportables et l’amélioration continue du modèle avec revue humaine.
+
+## Open Data Burkina
+
+Be.Vision inclut maintenant un atelier **Open Data Burkina** sous `/dashboard/data`.
+
+Fonctions :
+- import sécurisé de CSV, JSON et GeoJSON depuis les sources open-data autorisées ;
+- stockage multi-tenant dans Supabase avec RLS ;
+- détection automatique des colonnes et conservation des géométries GeoJSON ;
+- premières analyses : comptage, statistiques numériques et top catégories ;
+- architecture prête à accueillir des connecteurs BODI, OpenStreetMap et des agents IA spécialisés.
+
+Le portail BODI actuellement référencé par un site gouvernemental est **https://www.data.gov.bf/**. Utilisez l’URL directe d’un fichier public depuis cet espace dans l’importateur.
