@@ -1,3 +1,5 @@
+export type ComplexityLevel = 'kids' | 'general' | 'expert';
+
 export type AIProvider = 'demo' | 'openrouter' | 'huggingface' | 'ollama' | 'gemini';
 
 export interface AIConfig {
