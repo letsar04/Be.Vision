@@ -1,14 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, AlertTriangle, BarChart3, Camera, ChevronRight, ClipboardClock, Cpu, CreditCard, Database, History, LayoutDashboard, LogOut, Menu, ShieldCheck, Users, UserRoundPlus, X } from "lucide-react";
+import { Activity, AlertTriangle, BarChart3, Camera, ChevronRight, ClipboardCheck, Cpu, CreditCard, Database, History, LayoutDashboard, LogOut, Menu, ShieldCheck, Users, UserRoundPlus, X } from "lucide-react";
 import { useState } from "react";
 
 const items=[
  {href:"/dashboard",label:"Vue d’ensemble",icon:LayoutDashboard},
  {href:"/dashboard/cameras",label:"Caméras",icon:Camera},
  {href:"/dashboard/people",label:"Personnel",icon:Users},
- {href:"/dashboard/attendance",label:"Présences",icon:ClipboardClock},
+ {href:"/dashboard/attendance",label:"Présences",icon:ClipboardCheck},
  {href:"/dashboard/visitors",label:"Visiteurs",icon:UserRoundPlus},
  {href:"/dashboard/alerts",label:"Règles & alertes",icon:AlertTriangle},
  {href:"/dashboard/incidents",label:"Incidents",icon:ShieldCheck},
