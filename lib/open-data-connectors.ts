@@ -33,7 +33,7 @@ async function jsonRequest(url: string, init?: RequestInit) {
     cache: "no-store"
   });
 
-  if (!response.ok) throw new Error(\`HTTP \${response.status} sur \${url}\`);
+  if (!response.ok) throw new Error(`HTTP \${response.status} sur \${url}`);
   return response.json();
 }
 
