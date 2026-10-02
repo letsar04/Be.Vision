@@ -36,6 +36,7 @@ export function FederatedDataWorkbench({ initialDatasets, lastSyncAt }: { initia
   const [result, setResult] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<{ done: number; total: number } | null>(null);
   const [message, setMessage] = useState("");
 
   const resources = selected?.resources || [];
@@ -51,9 +52,10 @@ export function FederatedDataWorkbench({ initialDatasets, lastSyncAt }: { initia
       const r = await fetch("/api/data/federated/catalog?q=" + encodeURIComponent(query));
       const body = await r.json();
       if (!r.ok) throw new Error(body.error || "Recherche impossible.");
-      setDatasets(body.data || []);
-      setSelected(body.data?.[0] || null);
-      const firstResource = body.data?.[0]?.resources?.find((x: Resource) => x.datastore_active) || body.data?.[0]?.resources?.[0] || null;
+      const next = body.data || [];
+      setDatasets(next);
+      setSelected(next[0] || null);
+      const firstResource = next[0]?.resources?.find((x: Resource) => x.datastore_active) || next[0]?.resources?.[0] || null;
       setResource(firstResource);
       setResult(null);
     } catch (e) {
@@ -64,15 +66,43 @@ export function FederatedDataWorkbench({ initialDatasets, lastSyncAt }: { initia
   async function sync() {
     setSyncBusy(true);
     setMessage("");
+    setSyncProgress({ done: 0, total: 0 });
+
+    let start = 0;
+    let total = 0;
+    let done = 0;
+    let resources = 0;
+
     try {
-      const r = await fetch("/api/data/federated/sync", { method: "POST" });
-      const body = await r.json();
-      if (!r.ok) throw new Error(body.error || "Synchronisation impossible.");
-      setMessage(`Catalogue synchronisé : ${body.datasets.toLocaleString("fr-FR")} datasets, ${body.resources.toLocaleString("fr-FR")} ressources.`);
+      for (;;) {
+        const r = await fetch(`/api/data/federated/sync?start=${start}&limit=25`, {
+          method: "POST",
+          cache: "no-store"
+        });
+        const body = await r.json().catch(() => ({}));
+
+        if (!r.ok) {
+          throw new Error(body.error || "La source BODI n’est pas disponible ou a dépassé le délai.");
+        }
+
+        total = Number(body.total || total);
+        done = Math.min(Number(body.start || 0) + Number(body.batchSize || 0), total || done);
+        resources += Number(body.resources || 0);
+
+        setSyncProgress({ done, total });
+
+        if (body.complete || body.nextStart === null) break;
+
+        start = Number(body.nextStart);
+      }
+
+      setMessage(`Catalogue synchronisé : ${done.toLocaleString("fr-FR")} datasets, ${resources.toLocaleString("fr-FR")} ressources. Les données brutes restent à distance.`);
       await search();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Synchronisation impossible.");
-    } finally { setSyncBusy(false); }
+    } finally {
+      setSyncBusy(false);
+    }
   }
 
   async function operate() {
@@ -102,13 +132,14 @@ export function FederatedDataWorkbench({ initialDatasets, lastSyncAt }: { initia
         <p>Le catalogue est synchronisé ; les données restent chez leur fournisseur. Be.Vision interroge la source seulement lorsque vous lancez une opération.</p>
       </div>
       <button className="btn btn-primary" onClick={() => void sync()} disabled={syncBusy}>
-        {syncBusy ? <Loader2 size={15}/> : <RefreshCw size={15}/>} Synchroniser le catalogue
+        {syncBusy ? <Loader2 size={15}/> : <RefreshCw size={15}/>}
+        {syncBusy && syncProgress?.total ? ` Synchronisation ${syncProgress.done.toLocaleString("fr-FR")} / ${syncProgress.total.toLocaleString("fr-FR")}` : " Synchroniser le catalogue"}
       </button>
     </div>
 
     <div className="kpi-grid">
       <div className="kpi-card"><div className="kpi-top"><Database size={17}/><span>Fédération</span></div><div className="kpi-value">{datasets.length}</div><div className="kpi-label">Datasets affichés</div><div className="muted" style={{fontSize:10,marginTop:6}}>Métadonnées uniquement</div></div>
-      <div className="kpi-card"><div className="kpi-top"><RefreshCw size={17}/><span>Catalogue</span></div><div className="kpi-value">●</div><div className="kpi-label">Synchronisation automatique</div><div className="muted" style={{fontSize:10,marginTop:6}}>{lastSyncAt ? new Date(lastSyncAt).toLocaleString("fr-FR") : "Jamais synchronisé"}</div></div>
+      <div className="kpi-card"><div className="kpi-top"><RefreshCw size={17}/><span>Catalogue</span></div><div className="kpi-value">{lastSyncAt ? "✓" : "•"}</div><div className="kpi-label">Synchronisation automatique</div><div className="muted" style={{fontSize:10,marginTop:6}}>{lastSyncAt ? new Date(lastSyncAt).toLocaleString("fr-FR") : "Jamais synchronisé"}</div></div>
       <div className="kpi-card"><div className="kpi-top"><Sparkles size={17}/><span>IA</span></div><div className="kpi-value">0 B</div><div className="kpi-label">Données brutes stockées</div><div className="muted" style={{fontSize:10,marginTop:6}}>Mode distant</div></div>
     </div>
 
@@ -120,9 +151,18 @@ export function FederatedDataWorkbench({ initialDatasets, lastSyncAt }: { initia
       </div>
     </section>
 
+    {syncProgress && syncBusy && (
+      <div className="panel" style={{marginTop:14}}>
+        <div className="panel-head"><div><h2>Synchronisation du catalogue</h2><span>{syncProgress.total ? `${syncProgress.done.toLocaleString("fr-FR")} / ${syncProgress.total.toLocaleString("fr-FR")} datasets` : "Connexion à BODI…"}</span></div><Loader2 size={18}/></div>
+        <div style={{height:8,background:"#eaf0ee",borderRadius:999,overflow:"hidden"}}>
+          <div style={{height:"100%",width:syncProgress.total ? `${Math.round((syncProgress.done/syncProgress.total)*100)}%` : "8%",background:"linear-gradient(90deg,#20bf83,#62dcae)",transition:"width .2s"}}/>
+        </div>
+      </div>
+    )}
+
     <div className="dashboard-grid" style={{marginTop:18}}>
       <section className="panel">
-        <div className="panel-head"><div><h2>Datasets</h2><span>{datasets.length} résultat(s)</span></div></div>
+        <div className="panel-head"><div><h2>Datasets</h2><span>{datasets.length} résultat(s) affiché(s)</span></div></div>
         {datasets.length ? <div style={{display:"grid",gap:8,maxHeight:560,overflowY:"auto"}}>{datasets.map(d=><button key={d.id} className={"dataset-list-item"+(selected?.id===d.id?" active":"")} onClick={()=>{setSelected(d);setResource(d.resources?.find(r=>r.datastore_active)||d.resources?.[0]||null);setResult(null)}}><span><strong>{d.title || d.name}</strong><small>{d.organization || "BODI"} · {d.resources.length} ressource(s)</small></span><ArrowUpRight size={15}/></button>)}</div> : <div className="empty-state"><Database size={24}/><strong>Catalogue vide</strong><p>Lancez une synchronisation pour récupérer les métadonnées BODI.</p></div>}
       </section>
 
