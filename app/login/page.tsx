@@ -6,6 +6,7 @@ import { createClient } from "../../lib/supabase-browser";
 import { useRouter } from "next/navigation";
 
 const AUTH_TIMEOUT = 9000;
+// Production deployment marker: Supabase public config is provided by lib/supabase-config.ts.
 
 function withTimeout<T>(promise: Promise<T>, ms = AUTH_TIMEOUT) {
   return Promise.race([
