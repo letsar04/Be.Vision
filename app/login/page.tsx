@@ -2,7 +2,6 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { Camera, LockKeyhole, Users } from "lucide-react";
-import { createClient } from "../../lib/supabase-browser";
 import { useRouter } from "next/navigation";
 
 const AUTH_TIMEOUT = 9000;
@@ -36,23 +35,26 @@ export default function LoginPage() {
     setMsg("");
 
     try {
-      const supabase = createClient();
-      const result = signup
-        ? await withTimeout(supabase.auth.signUp({
+      const endpoint = signup ? "/api/auth/signup" : "/api/auth/login";
+      const payload = signup
+        ? {
             email,
             password,
-            options: {
-              data: {
-                company_name: companyName.trim() || "Mon entreprise",
-                site_name: siteName.trim() || "Siège",
-              },
-            },
-          }))
-        : await withTimeout(supabase.auth.signInWithPassword({ email, password }));
+            company_name: companyName.trim() || "Mon entreprise",
+            site_name: siteName.trim() || "Siège",
+          }
+        : { email, password };
 
-      if (result.error) throw result.error;
+      const response = await withTimeout(fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }));
 
-      if (signup && !result.data.session) {
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || (signup ? "Impossible de créer le compte." : "Connexion impossible."));
+
+      if (signup && !result.session) {
         setMsg("Compte créé. Vérifiez votre adresse email avant de vous connecter.");
         return;
       }
