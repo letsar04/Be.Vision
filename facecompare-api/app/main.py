@@ -2,10 +2,11 @@ import json
 import uuid
 from datetime import datetime, timezone
 import os
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from contextlib import asynccontextmanager
 
 from app.config import settings
 from app.schemas import (
@@ -19,7 +20,6 @@ from app.schemas import (
 )
 from app.services.insightface import insightface_service
 from app.services.qdrant import qdrant_service
-from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
-    description="Identity verification & KYC microservice powered by InsightFace and Qdrant",
+    description="Identity and vision microservice powered by InsightFace and Qdrant",
     lifespan=lifespan,
 )
 
@@ -74,7 +74,6 @@ async def verify_identity(
     threshold: float | None = Form(None, description="Custom similarity threshold [0.0 - 1.0]"),
 ):
     eff_threshold = threshold if threshold is not None else settings.default_match_threshold
-    
     source_bytes = await source_image.read()
     target_bytes = await target_image.read()
 
@@ -89,26 +88,19 @@ async def verify_identity(
     similarity = compare_res.get("similarity", 0.0)
     matched = similarity >= eff_threshold
     processing_ms = compare_res.get("processing_ms", 0.0)
-
     src_face = compare_res.get("source_face", {})
     tgt_face = compare_res.get("target_face", {})
-
     src_q = src_face.get("quality", {})
     tgt_q = tgt_face.get("quality", {})
-
     src_quality_schema = FaceQualitySchema(**src_q) if src_q else None
     tgt_quality_schema = FaceQualitySchema(**tgt_q) if tgt_q else None
-
     quality_pass = bool(
-        (src_quality_schema and src_quality_schema.score > 0.4) and
-        (tgt_quality_schema and tgt_quality_schema.score > 0.4)
+        (src_quality_schema and src_quality_schema.score > 0.4)
+        and (tgt_quality_schema and tgt_quality_schema.score > 0.4)
     )
 
     verification_id = str(uuid.uuid4())
     now_iso = datetime.now(timezone.utc).isoformat()
-
-    source_embedding = src_face.get("embedding")
-    
     audit_payload = {
         "verification_id": verification_id,
         "matched": matched,
@@ -125,11 +117,10 @@ async def verify_identity(
     try:
         await qdrant_service.store_verification_audit(
             point_id=verification_id,
-            vector=source_embedding,
+            vector=src_face.get("embedding"),
             payload=audit_payload,
         )
     except Exception:
-        # Non-blocking log failure
         pass
 
     return VerificationResponse(
@@ -148,6 +139,7 @@ async def verify_identity(
 async def enroll_identity(
     image: UploadFile = File(...),
     person_id: str = Form(...),
+    tenant_id: str = Form(...),
     name: str | None = Form(None),
     external_id: str | None = Form(None),
     metadata: str | None = Form(None, description="JSON metadata string"),
@@ -179,8 +171,8 @@ async def enroll_identity(
 
     vector_id = str(uuid.uuid4())
     now_iso = datetime.now(timezone.utc).isoformat()
-
     payload = {
+        "tenant_id": tenant_id,
         "person_id": person_id,
         "name": name,
         "external_id": external_id,
@@ -207,11 +199,11 @@ async def enroll_identity(
 @app.post("/api/v1/search", response_model=SearchResponse)
 async def search_identity(
     image: UploadFile = File(...),
+    tenant_id: str = Form(...),
     threshold: float | None = Form(None),
     limit: int = Form(5, ge=1, le=50),
 ):
     eff_threshold = threshold if threshold is not None else settings.default_match_threshold
-
     image_bytes = await image.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="Image file cannot be empty")
@@ -232,6 +224,7 @@ async def search_identity(
     try:
         results = await qdrant_service.search_identities(
             query_vector=embedding,
+            tenant_id=tenant_id,
             limit=limit,
             score_threshold=eff_threshold,
         )
@@ -241,19 +234,17 @@ async def search_identity(
     matches = []
     for point in results:
         payload = point.get("payload", {})
-        similarity = point.get("score", 0.0)
         matches.append(
             SearchMatchSchema(
                 person_id=payload.get("person_id", str(point.get("id"))),
                 name=payload.get("name"),
                 external_id=payload.get("external_id"),
-                similarity=similarity,
+                similarity=point.get("score", 0.0),
                 metadata=payload.get("metadata", {}),
             )
         )
 
     quality_schema = FaceQualitySchema(**primary_face.get("quality", {})) if primary_face.get("quality") else None
-
     return SearchResponse(
         matches=matches,
         threshold=eff_threshold,
