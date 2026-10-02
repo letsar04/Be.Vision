@@ -23,11 +23,23 @@ export type WorkspaceContext = {
 export const getWorkspaceContext = cache(async (): Promise<WorkspaceContext | null> => {
   const supabase = await createServerClient();
 
-  try {
-    const { data: { user }, error: authError } = await withTimeout(supabase.auth.getUser());
-    if (authError) throw authError;
-    if (!user) return null;
+  const {
+    data: { user },
+    error: authError,
+  } = await withTimeout(supabase.auth.getUser());
 
+  if (authError) {
+    return {
+      user: { id: "", email: undefined },
+      tenant: null,
+      membership: null,
+      error: authError.message,
+    };
+  }
+
+  if (!user) return null;
+
+  try {
     const { data: membership, error: membershipError } = await withTimeout(
       supabase
         .from("tenant_members")
