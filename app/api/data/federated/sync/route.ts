@@ -1,12 +1,14 @@
+
 import { NextResponse } from "next/server";
 import { createServerClient } from "../../../../../lib/supabase-server";
 import { getApiContext } from "../../../../../lib/api-auth";
-import { ckanAction, type CkanDataset } from "../../../../../lib/federated-open-data";
+import { ckanPage, discoverOpenDataForAfricaCatalog, type CatalogDataset } from "../../../../../lib/open-data-connectors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const DEFAULT_BODI_URL = process.env.BODI_CKAN_URL || "https://www.data.gov.bf";
+const CKAN_URL = process.env.BODI_CKAN_URL || "https://www.data.gov.bf";
+const ODFA_URL = process.env.OPEN_DATA_BURKINA_URL || "https://burkinafaso.opendataforafrica.org";
 const MAX_BATCH = 25;
 
 export async function POST(req: Request) {
@@ -19,41 +21,50 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Session utilisateur introuvable." }, { status: 401 });
   }
 
-  const url = new URL(req.url);
-  const start = Math.max(0, Number(url.searchParams.get("start") || 0));
-  const requestedLimit = Number(url.searchParams.get("limit") || MAX_BATCH);
-  const limit = Math.min(Math.max(requestedLimit, 1), MAX_BATCH);
-
-  const started = new Date().toISOString();
+  const params = new URL(req.url).searchParams;
+  const start = Math.max(0, Number(params.get("start") || 0));
+  const limit = Math.min(Math.max(Number(params.get("limit") || MAX_BATCH), 1), MAX_BATCH);
 
   try {
-    const sourceResult = await supabase
-      .from("federated_data_sources")
-      .upsert({
-        name: "Burkina Faso Open Data",
-        connector_type: "ckan",
-        base_url: DEFAULT_BODI_URL,
-        enabled: true
-      }, { onConflict: "base_url" })
-      .select("id,base_url,last_sync_at")
-      .single();
+    let provider: "ckan" | "open_data_for_africa" = "ckan";
+    let baseUrl = CKAN_URL;
+    let datasets: CatalogDataset[] = [];
+    let total = 0;
 
-    if (sourceResult.error || !sourceResult.data) {
-      return NextResponse.json({ error: sourceResult.error?.message || "Source BODI indisponible." }, { status: 500 });
+    try {
+      const page = await ckanPage(CKAN_URL, start, limit);
+      datasets = page.results || [];
+      total = Number(page.count || datasets.length);
+    } catch (ckanError) {
+      if (start > 0) throw ckanError;
+      provider = "open_data_for_africa";
+      baseUrl = ODFA_URL;
+      datasets = await discoverOpenDataForAfricaCatalog(ODFA_URL);
+      total = datasets.length;
     }
 
-    const result = await ckanAction<{ count: number; results: CkanDataset[] }>(
-      sourceResult.data.base_url,
-      "package_search",
-      { q: "*:*", rows: limit, start }
-    );
+    const source = await supabase
+      .from("federated_data_sources")
+      .upsert({
+        name: provider === "ckan" ? "Data.gov.bf · CKAN" : "Open Data Burkina · INSD",
+        connector_type: provider,
+        base_url: baseUrl,
+        enabled: true,
+        updated_at: new Date().toISOString()
+      }, { onConflict: "base_url" })
+      .select("id,base_url")
+      .single();
 
-    const catalog = result.results || [];
+    if (source.error || !source.data) throw source.error || new Error("Source Open Data indisponible.");
+
     const now = new Date().toISOString();
+    const selected = provider === "open_data_for_africa" && start > 0
+      ? []
+      : datasets;
 
-    if (catalog.length) {
-      const datasetRows = catalog.map(dataset => ({
-        source_id: sourceResult.data.id,
+    if (selected.length) {
+      const datasetRows = selected.map(dataset => ({
+        source_id: source.data.id,
         external_id: dataset.id || dataset.name,
         name: dataset.name,
         title: dataset.title || dataset.name,
@@ -74,10 +85,9 @@ export async function POST(req: Request) {
 
       if (saved.error) throw saved.error;
 
-      const idByExternal = new Map((saved.data || []).map((row: any) => [row.external_id, row.id]));
-
-      const resourceRows = catalog.flatMap(dataset => {
-        const datasetId = idByExternal.get(dataset.id || dataset.name);
+      const ids = new Map((saved.data || []).map((row: any) => [row.external_id, row.id]));
+      const resources = selected.flatMap(dataset => {
+        const datasetId = ids.get(dataset.id || dataset.name);
         if (!datasetId) return [];
 
         return (dataset.resources || [])
@@ -99,46 +109,41 @@ export async function POST(req: Request) {
           }));
       });
 
-      if (resourceRows.length) {
-        const resources = await supabase
+      if (resources.length) {
+        const insertedResources = await supabase
           .from("federated_data_resources")
-          .upsert(resourceRows, { onConflict: "dataset_id,external_id" });
+          .upsert(resources, { onConflict: "dataset_id,external_id" });
 
-        if (resources.error) throw resources.error;
+        if (insertedResources.error) throw insertedResources.error;
       }
     }
-
-    const total = Number(result.count || 0);
-    const nextStart = start + catalog.length;
-    const complete = catalog.length === 0 || nextStart >= total || catalog.length < limit;
 
     await supabase
       .from("federated_data_sources")
       .update({ last_sync_at: now, updated_at: now })
-      .eq("id", sourceResult.data.id);
+      .eq("id", source.data.id);
+
+    const done = provider === "open_data_for_africa" ? total : start + selected.length;
+    const complete = provider === "open_data_for_africa"
+      ? true
+      : selected.length === 0 || done >= total || selected.length < limit;
 
     return NextResponse.json({
       ok: true,
-      source: sourceResult.data.base_url,
+      provider,
+      source: baseUrl,
       start,
-      batchSize: catalog.length,
+      batchSize: selected.length,
       total,
-      nextStart: complete ? null : nextStart,
+      nextStart: complete ? null : done,
       complete,
-      resources: catalog.reduce((sum, dataset) => sum + (dataset.resources?.length || 0), 0),
-      started_at: started,
-      finished_at: now
+      resources: selected.reduce((sum, d) => sum + (d.resources?.length || 0), 0)
     }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
-    console.error("[api/data/federated/sync] failed", error);
-
-    const message = error instanceof Error ? error.message : "Synchronisation BODI échouée.";
-
+    console.error("[federated sync] failed", error);
     return NextResponse.json({
-      error: message,
-      start,
-      nextStart: start,
+      error: error instanceof Error ? error.message : "Synchronisation Open Data impossible.",
       retryable: true
-    }, { status: 502, headers: { "Cache-Control": "private, no-store" } });
+    }, { status: 502 });
   }
 }
