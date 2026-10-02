@@ -100,3 +100,7 @@ Fonctions :
 - architecture prête à accueillir des connecteurs BODI, OpenStreetMap et des agents IA spécialisés.
 
 Le portail BODI actuellement référencé par un site gouvernemental est **https://www.data.gov.bf/**. Utilisez l’URL directe d’un fichier public depuis cet espace dans l’importateur.
+
+
+## Production auth
+L’authentification de création de compte et de connexion passe par les routes serveur Be.Vision afin de rester indépendante de la configuration JavaScript publique du navigateur.
