@@ -76,3 +76,5 @@ Les secrets ne doivent jamais être préfixés par NEXT_PUBLIC_ ni commités.
 ## Roadmap entreprise
 
 Les prochains blocs sont le contrôle d’accès matériel, le monitoring avancé des caméras, les connecteurs NVR/VMS, les notifications multicanales, les rapports exportables et l’amélioration continue du modèle avec revue humaine.
+
+CI build verification branch.
