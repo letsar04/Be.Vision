@@ -14,6 +14,7 @@ const items=[
  {href:"/dashboard/incidents",label:"Incidents",icon:ShieldCheck},
  {href:"/dashboard/edge",label:"Agents de site",icon:Cpu},
  {href:"/dashboard/analytics",label:"Analytique",icon:BarChart3},
+ {href:"/dashboard/data",label:"Open Data Burkina",icon:Database},
  {href:"/dashboard/ai",label:"IA & qualité",icon:Database},
  {href:"/dashboard/audit",label:"Audit",icon:History},
  {href:"/dashboard/billing",label:"Abonnement",icon:CreditCard}
