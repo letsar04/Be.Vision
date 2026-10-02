@@ -1,47 +1,85 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "../../../lib/supabase-server";
-import { ensureWorkspace } from "../../../lib/workspace-provision";
 
 export const dynamic = "force-dynamic";
 
-async function getVerifiedUser() {
-  const supabase = await createServerClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) {
-    return { supabase, user: null, error: error?.message || "Session utilisateur introuvable." };
+async function loadWorkspace(supabase: any, userId: string) {
+  const membership = await supabase
+    .from("tenant_members")
+    .select("tenant_id,role")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (membership.error) throw membership.error;
+  if (!membership.data) {
+    throw Object.assign(new Error("Aucun espace entreprise n’est associé à ce compte."), { code: "WORKSPACE_NOT_FOUND" });
   }
-  return { supabase, user: data.user, error: null };
+
+  const tenant = await supabase
+    .from("tenants")
+    .select("id,name,plan,billing_status,trial_ends_at,stripe_customer_id,setup_completed,legal_name,industry,company_size,country,city,address,phone,website")
+    .eq("id", membership.data.tenant_id)
+    .single();
+
+  if (tenant.error) throw tenant.error;
+
+  const site = await supabase
+    .from("sites")
+    .select("id,name,address,timezone,status,created_at")
+    .eq("tenant_id", tenant.data.id)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (site.error) throw site.error;
+
+  return { tenant: tenant.data, membership: membership.data, site: site.data };
+}
+
+function errorResponse(error: unknown, fallback: string, status = 500) {
+  const value = error as { message?: string; code?: string; details?: string; hint?: string } | null;
+  return NextResponse.json(
+    {
+      error: value?.message || fallback,
+      code: value?.code,
+      details: value?.details,
+      hint: value?.hint
+    },
+    { status, headers: { "Cache-Control": "private, no-store" } }
+  );
 }
 
 export async function GET() {
   try {
-    const auth = await getVerifiedUser();
-    if (!auth.user) return NextResponse.json({ error: auth.error }, { status: 401 });
+    const supabase = await createServerClient();
+    const auth = await supabase.auth.getUser();
 
-    const workspace = await ensureWorkspace(auth.supabase, auth.user);
+    if (auth.error || !auth.data.user) {
+      return errorResponse(auth.error, "Session utilisateur introuvable.", 401);
+    }
 
+    const workspace = await loadWorkspace(supabase, auth.data.user.id);
     return NextResponse.json(
       { tenant: workspace.tenant, site: workspace.site },
       { headers: { "Cache-Control": "private, no-store" } }
     );
   } catch (error) {
     console.error("[api/workspace] GET failed", error);
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Impossible de charger l’espace.",
-        code: error && typeof error === "object" && "code" in error ? String((error as any).code) : undefined
-      },
-      { status: 500 }
-    );
+    return errorResponse(error, "Impossible de charger l’espace.");
   }
 }
 
 export async function PUT(req: Request) {
   try {
-    const auth = await getVerifiedUser();
-    if (!auth.user) return NextResponse.json({ error: auth.error }, { status: 401 });
+    const supabase = await createServerClient();
+    const auth = await supabase.auth.getUser();
 
-    const workspace = await ensureWorkspace(auth.supabase, auth.user);
+    if (auth.error || !auth.data.user) {
+      return errorResponse(auth.error, "Session utilisateur introuvable.", 401);
+    }
+
+    const workspace = await loadWorkspace(supabase, auth.data.user.id);
     const body = await req.json();
 
     const name = String(body.name || "").trim();
@@ -56,13 +94,14 @@ export async function PUT(req: Request) {
     if (!timezone) missing.push("fuseau horaire");
 
     if (missing.length) {
-      return NextResponse.json(
-        { error: "Complétez les champs obligatoires : " + missing.join(", ") + "." },
-        { status: 422 }
+      return errorResponse(
+        new Error("Complétez les champs obligatoires : " + missing.join(", ") + "."),
+        "Champs obligatoires manquants.",
+        422
       );
     }
 
-    const tenantUpdate = await auth.supabase
+    const tenantUpdate = await supabase
       .from("tenants")
       .update({
         name,
@@ -82,42 +121,56 @@ export async function PUT(req: Request) {
 
     if (tenantUpdate.error) {
       console.error("[api/workspace] tenant update failed", tenantUpdate.error);
-      return NextResponse.json(
-        { error: "Impossible d’enregistrer les informations de l’entreprise.", details: tenantUpdate.error.message, code: tenantUpdate.error.code },
-        { status: 400 }
-      );
+      return errorResponse(tenantUpdate.error, "Impossible d’enregistrer les informations de l’entreprise.", 400);
     }
 
-    const siteUpdate = await auth.supabase
-      .from("sites")
-      .update({
-        name: siteName,
-        address: String(body.site_address || "").trim() || null,
-        timezone,
-        status: "active"
-      })
-      .eq("id", workspace.site.id)
-      .eq("tenant_id", workspace.tenant.id)
-      .select("id,name,address,timezone,status")
-      .single();
+    let site = workspace.site;
 
-    if (siteUpdate.error) {
-      console.error("[api/workspace] site update failed", siteUpdate.error);
-      return NextResponse.json(
-        { error: "Impossible d’enregistrer le site principal.", details: siteUpdate.error.message, code: siteUpdate.error.code },
-        { status: 400 }
-      );
+    if (!site) {
+      const siteInsert = await supabase
+        .from("sites")
+        .insert({
+          tenant_id: workspace.tenant.id,
+          name: siteName,
+          address: String(body.site_address || "").trim() || null,
+          timezone,
+          status: "active"
+        })
+        .select("id,name,address,timezone,status")
+        .single();
+
+      if (siteInsert.error) {
+        console.error("[api/workspace] site insert failed", siteInsert.error);
+        return errorResponse(siteInsert.error, "Impossible de créer le site principal.", 400);
+      }
+      site = siteInsert.data;
+    } else {
+      const siteUpdate = await supabase
+        .from("sites")
+        .update({
+          name: siteName,
+          address: String(body.site_address || "").trim() || null,
+          timezone,
+          status: "active"
+        })
+        .eq("id", site.id)
+        .eq("tenant_id", workspace.tenant.id)
+        .select("id,name,address,timezone,status")
+        .single();
+
+      if (siteUpdate.error) {
+        console.error("[api/workspace] site update failed", siteUpdate.error);
+        return errorResponse(siteUpdate.error, "Impossible d’enregistrer le site principal.", 400);
+      }
+      site = siteUpdate.data;
     }
 
     return NextResponse.json(
-      { ok: true, tenant: tenantUpdate.data, site: siteUpdate.data },
+      { ok: true, tenant: tenantUpdate.data, site },
       { headers: { "Cache-Control": "private, no-store" } }
     );
   } catch (error) {
     console.error("[api/workspace] PUT failed", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Impossible d’enregistrer les paramètres." },
-      { status: 500 }
-    );
+    return errorResponse(error, "Impossible d’enregistrer les paramètres.");
   }
 }

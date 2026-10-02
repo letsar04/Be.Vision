@@ -46,8 +46,8 @@ export function WorkspaceSettings({ initialTenant, initialSite }: Props) {
       const body = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        const detail = body.details ? " " + body.details : "";
-        throw new Error((body.error || "Enregistrement impossible.") + detail);
+        const details = [body.details, body.hint, body.code ? "Code: " + body.code : ""].filter(Boolean).join(" · ");
+        throw new Error((body.error || "Enregistrement impossible.") + (details ? " " + details : ""));
       }
 
       setMessage("Paramètres enregistrés. Votre espace entreprise est configuré.");
