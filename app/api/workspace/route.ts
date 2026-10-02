@@ -1,52 +1,70 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "../../../lib/supabase-server";
+import { createAdminClient } from "../../../lib/supabase-admin";
 import { ensureWorkspace } from "../../../lib/workspace-provision";
 
 export const dynamic = "force-dynamic";
 
+async function getVerifiedUser() {
+  const supabase = await createServerClient();
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) return { supabase, user: null, error: error?.message || "Session utilisateur introuvable." };
+  return { supabase, user: data.user, error: null };
+}
+
 export async function GET() {
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) return NextResponse.json({ error: "Session utilisateur introuvable." }, { status: 401 });
+    const auth = await getVerifiedUser();
+    if (!auth.user) return NextResponse.json({ error: auth.error }, { status: 401 });
 
-    const workspace = await ensureWorkspace(supabase, data.user);
-    const siteQuery = await supabase
-      .from("sites")
-      .select("id,name,address,timezone,status")
-      .eq("tenant_id", workspace.tenant.id)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    return NextResponse.json({ tenant: workspace.tenant, site: siteQuery.data || workspace.site }, { headers: { "Cache-Control": "private, no-store" } });
+    const workspace = await ensureWorkspace(auth.supabase, auth.user);
+    return NextResponse.json(
+      { tenant: workspace.tenant, site: workspace.site },
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
   } catch (error) {
     console.error("[api/workspace] GET failed", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Impossible de charger l’espace." }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Impossible de charger l’espace." },
+      { status: 500 }
+    );
   }
 }
 
 export async function PUT(req: Request) {
   try {
-    const supabase = await createServerClient();
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) return NextResponse.json({ error: "Session utilisateur introuvable." }, { status: 401 });
+    const auth = await getVerifiedUser();
+    if (!auth.user) return NextResponse.json({ error: auth.error }, { status: 401 });
 
-    const workspace = await ensureWorkspace(supabase, data.user);
+    const workspace = await ensureWorkspace(auth.supabase, auth.user);
     const body = await req.json();
 
     const name = String(body.name || "").trim();
-    const country = String(body.country || "").trim();
+    const country = String(body.country || "").trim() || "Burkina Faso";
     const siteName = String(body.site_name || "").trim();
     const timezone = String(body.timezone || "Africa/Ouagadougou").trim();
 
-    if (!name || !country || !siteName || !timezone) {
-      return NextResponse.json({ error: "Renseignez le nom de l’entreprise, le pays, le site principal et le fuseau horaire." }, { status: 400 });
+    const missing: string[] = [];
+    if (!name) missing.push("nom de l’entreprise");
+    if (!country) missing.push("pays");
+    if (!siteName) missing.push("nom du site principal");
+    if (!timezone) missing.push("fuseau horaire");
+
+    if (missing.length) {
+      return NextResponse.json(
+        { error: "Complétez les champs obligatoires : " + missing.join(", ") + "." },
+        { status: 422 }
+      );
     }
 
-    const setupCompleted = Boolean(name && country && siteName && timezone);
+    let db: any = auth.supabase;
+    try {
+      db = createAdminClient();
+    } catch {
+      // Fallback to the authenticated client if the server secret is not available.
+    }
 
-    const tenantUpdate = await supabase
+    const tenantUpdate = await db
       .from("tenants")
       .update({
         name,
@@ -58,15 +76,21 @@ export async function PUT(req: Request) {
         address: String(body.address || "").trim() || null,
         phone: String(body.phone || "").trim() || null,
         website: String(body.website || "").trim() || null,
-        setup_completed: setupCompleted
+        setup_completed: true
       })
       .eq("id", workspace.tenant.id)
       .select("id,name,plan,billing_status,trial_ends_at,stripe_customer_id,setup_completed,legal_name,industry,company_size,country,city,address,phone,website")
       .single();
 
-    if (tenantUpdate.error) throw tenantUpdate.error;
+    if (tenantUpdate.error) {
+      console.error("[api/workspace] tenant update failed", tenantUpdate.error);
+      return NextResponse.json(
+        { error: "Impossible d’enregistrer les informations de l’entreprise.", details: tenantUpdate.error.message },
+        { status: 400 }
+      );
+    }
 
-    const siteUpdate = await supabase
+    const siteUpdate = await db
       .from("sites")
       .update({
         name: siteName,
@@ -79,11 +103,23 @@ export async function PUT(req: Request) {
       .select("id,name,address,timezone,status")
       .single();
 
-    if (siteUpdate.error) throw siteUpdate.error;
+    if (siteUpdate.error) {
+      console.error("[api/workspace] site update failed", siteUpdate.error);
+      return NextResponse.json(
+        { error: "Impossible d’enregistrer le site principal.", details: siteUpdate.error.message },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json({ ok: true, tenant: tenantUpdate.data, site: siteUpdate.data }, { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json(
+      { ok: true, tenant: tenantUpdate.data, site: siteUpdate.data },
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
   } catch (error) {
     console.error("[api/workspace] PUT failed", error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Impossible d’enregistrer les paramètres." }, { status: 400 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Impossible d’enregistrer les paramètres." },
+      { status: 500 }
+    );
   }
 }

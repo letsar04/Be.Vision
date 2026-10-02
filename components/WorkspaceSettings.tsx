@@ -12,12 +12,12 @@ export function WorkspaceSettings({ initialTenant, initialSite }: Props) {
     legal_name: initialTenant?.legal_name || "",
     industry: initialTenant?.industry || "",
     company_size: initialTenant?.company_size || "",
-    country: initialTenant?.country || "",
-    city: initialTenant?.city || "",
+    country: initialTenant?.country || "Burkina Faso",
+    city: initialTenant?.city || "Ouagadougou",
     address: initialTenant?.address || "",
     phone: initialTenant?.phone || "",
     website: initialTenant?.website || "",
-    site_name: initialSite?.name || "",
+    site_name: initialSite?.name || "Siège social",
     site_address: initialSite?.address || "",
     timezone: initialSite?.timezone || "Africa/Ouagadougou"
   });
@@ -30,6 +30,13 @@ export function WorkspaceSettings({ initialTenant, initialSite }: Props) {
     event.preventDefault();
     setSaving(true);
     setMessage("");
+
+    if (!form.name.trim() || !form.country.trim() || !form.site_name.trim() || !form.timezone.trim()) {
+      setMessage("Renseignez les champs marqués * avant d’enregistrer.");
+      setSaving(false);
+      return;
+    }
+
     try {
       const response = await fetch("/api/workspace", {
         method: "PUT",
@@ -37,8 +44,13 @@ export function WorkspaceSettings({ initialTenant, initialSite }: Props) {
         body: JSON.stringify(form)
       });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || "Enregistrement impossible.");
-      setMessage("Paramètres enregistrés. Votre espace est maintenant configuré.");
+
+      if (!response.ok) {
+        const detail = body.details ? " " + body.details : "";
+        throw new Error((body.error || "Enregistrement impossible.") + detail);
+      }
+
+      setMessage("Paramètres enregistrés. Votre espace entreprise est configuré.");
       window.location.reload();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Enregistrement impossible.");
@@ -51,7 +63,7 @@ export function WorkspaceSettings({ initialTenant, initialSite }: Props) {
     <div className="settings-layout">
       <form className="panel settings-form" onSubmit={save}>
         <div className="panel-head">
-          <div><h2>Informations générales</h2><span>Les éléments essentiels de votre espace</span></div>
+          <div><h2>Informations générales</h2><span>Les informations marquées * sont nécessaires pour activer l’espace</span></div>
           <Building2 size={18}/>
         </div>
 
