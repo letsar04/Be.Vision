@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "../../../lib/supabase-server";
-import { createAdminClient } from "../../../lib/supabase-admin";
 import { ensureWorkspace } from "../../../lib/workspace-provision";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +7,9 @@ export const dynamic = "force-dynamic";
 async function getVerifiedUser() {
   const supabase = await createServerClient();
   const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return { supabase, user: null, error: error?.message || "Session utilisateur introuvable." };
+  if (error || !data.user) {
+    return { supabase, user: null, error: error?.message || "Session utilisateur introuvable." };
+  }
   return { supabase, user: data.user, error: null };
 }
 
@@ -18,6 +19,7 @@ export async function GET() {
     if (!auth.user) return NextResponse.json({ error: auth.error }, { status: 401 });
 
     const workspace = await ensureWorkspace(auth.supabase, auth.user);
+
     return NextResponse.json(
       { tenant: workspace.tenant, site: workspace.site },
       { headers: { "Cache-Control": "private, no-store" } }
@@ -25,7 +27,10 @@ export async function GET() {
   } catch (error) {
     console.error("[api/workspace] GET failed", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Impossible de charger l’espace." },
+      {
+        error: error instanceof Error ? error.message : "Impossible de charger l’espace.",
+        code: error && typeof error === "object" && "code" in error ? String((error as any).code) : undefined
+      },
       { status: 500 }
     );
   }
@@ -57,14 +62,7 @@ export async function PUT(req: Request) {
       );
     }
 
-    let db: any = auth.supabase;
-    try {
-      db = createAdminClient();
-    } catch {
-      // Fallback to the authenticated client if the server secret is not available.
-    }
-
-    const tenantUpdate = await db
+    const tenantUpdate = await auth.supabase
       .from("tenants")
       .update({
         name,
@@ -85,12 +83,12 @@ export async function PUT(req: Request) {
     if (tenantUpdate.error) {
       console.error("[api/workspace] tenant update failed", tenantUpdate.error);
       return NextResponse.json(
-        { error: "Impossible d’enregistrer les informations de l’entreprise.", details: tenantUpdate.error.message },
+        { error: "Impossible d’enregistrer les informations de l’entreprise.", details: tenantUpdate.error.message, code: tenantUpdate.error.code },
         { status: 400 }
       );
     }
 
-    const siteUpdate = await db
+    const siteUpdate = await auth.supabase
       .from("sites")
       .update({
         name: siteName,
@@ -106,7 +104,7 @@ export async function PUT(req: Request) {
     if (siteUpdate.error) {
       console.error("[api/workspace] site update failed", siteUpdate.error);
       return NextResponse.json(
-        { error: "Impossible d’enregistrer le site principal.", details: siteUpdate.error.message },
+        { error: "Impossible d’enregistrer le site principal.", details: siteUpdate.error.message, code: siteUpdate.error.code },
         { status: 400 }
       );
     }
