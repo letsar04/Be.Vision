@@ -17,27 +17,38 @@ export async function POST(req: Request) {
     }
 
     const supabase = await createServerClient();
+    const options: Record<string, unknown> = {
+      data: {
+        company_name: companyName,
+        site_name: siteName
+      }
+    };
+
+    const siteUrl = String(process.env.NEXT_PUBLIC_SITE_URL || "").trim();
+    if (siteUrl) {
+      options.emailRedirectTo = new URL("/auth/callback", siteUrl).toString();
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          company_name: companyName,
-          site_name: siteName,
-        },
-      },
+      options: options as any
     });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({
-      ok: true,
-      session: Boolean(data.session),
-      requiresEmailConfirmation: !data.session,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        session: Boolean(data.session),
+        requiresEmailConfirmation: !data.session
+      },
+      { headers: { "Cache-Control": "private, no-store" } }
+    );
   } catch (error) {
+    console.error("[api/auth/signup] failed", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Impossible de créer le compte." },
       { status: 500 }

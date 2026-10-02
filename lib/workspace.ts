@@ -22,7 +22,6 @@ export type WorkspaceContext = {
 
 export const getWorkspaceContext = cache(async (): Promise<WorkspaceContext | null> => {
   const supabase = await createServerClient();
-
   const {
     data: { user },
     error: authError,
@@ -33,7 +32,7 @@ export const getWorkspaceContext = cache(async (): Promise<WorkspaceContext | nu
       user: { id: "", email: undefined },
       tenant: null,
       membership: null,
-      error: authError.message,
+      error: authError.message
     };
   }
 
@@ -43,11 +42,12 @@ export const getWorkspaceContext = cache(async (): Promise<WorkspaceContext | nu
     const { data: membership, error: membershipError } = await withTimeout(
       supabase
         .from("tenant_members")
-        .select("tenant_id, role")
+        .select("tenant_id,role")
         .eq("user_id", user.id)
         .limit(1)
         .maybeSingle()
     );
+
     if (membershipError) throw membershipError;
 
     if (!membership) {
@@ -57,19 +57,24 @@ export const getWorkspaceContext = cache(async (): Promise<WorkspaceContext | nu
     const { data: tenant, error: tenantError } = await withTimeout(
       supabase
         .from("tenants")
-        .select("id,name,plan,billing_status,trial_ends_at,stripe_customer_id")
+        .select("id,name,plan,billing_status,trial_ends_at,stripe_customer_id,setup_completed,legal_name,industry,company_size,country,city,address,phone,website")
         .eq("id", membership.tenant_id)
         .single()
     );
+
     if (tenantError) throw tenantError;
 
-    return { user: { id: user.id, email: user.email }, tenant, membership };
+    return {
+      user: { id: user.id, email: user.email },
+      tenant,
+      membership
+    };
   } catch (error) {
     return {
       user: { id: user.id, email: user.email },
       tenant: null,
       membership: null,
-      error: error instanceof Error ? error.message : "Erreur de connexion.",
+      error: error instanceof Error ? error.message : "Erreur de connexion."
     };
   }
 });
