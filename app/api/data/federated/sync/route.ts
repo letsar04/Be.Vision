@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "../../../../lib/supabase-admin";
+import { createAdminClient } from "../../../../../lib/supabase-admin";
 import { getApiContext } from "../../../../../lib/api-auth";
-import { ckanAction, discoverCkanCatalog, type CkanDataset } from "../../../../lib/federated-open-data";
+import { ckanAction, discoverCkanCatalog, type CkanDataset } from "../../../../../lib/federated-open-data";
 
 export const runtime = "nodejs";
 
