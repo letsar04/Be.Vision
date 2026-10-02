@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "../../../../../lib/supabase-admin";
+import { createServerClient } from "../../../../../lib/supabase-server";
 import { getApiContext } from "../../../../../lib/api-auth";
 import { ckanAction, discoverCkanCatalog, type CkanDataset } from "../../../../../lib/federated-open-data";
 
@@ -11,9 +11,12 @@ export async function POST() {
   const auth = await getApiContext();
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
-  const db = (() => { try { return createAdminClient(); } catch { return null; } })();
-  if (!db) return NextResponse.json({ error: "Le service de synchronisation du catalogue n’est pas configuré sur cet environnement." }, { status: 503 });
-
+  const supabase = await createServerClient();
+  const session = await supabase.auth.getUser();
+  if (session.error || !session.data.user) {
+    return NextResponse.json({ error: "Session utilisateur introuvable." }, { status: 401 });
+  }
+  const db = supabase;
   const started = new Date().toISOString();
   const source = await db
     .from("federated_data_sources")
