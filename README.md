@@ -31,6 +31,7 @@ Pour une identité reconnue:
 - Centre de contrôle multi-sites
 - Caméras et zones
 - Personnel et enrôlement
+- Import massif des employés par CSV + photos
 - Présences
 - Visiteurs
 - Règles et alertes
@@ -72,6 +73,16 @@ Les secrets ne doivent jamais être préfixés par NEXT_PUBLIC_ ni commités.
 - utiliser la caméra du navigateur sur PC ou smartphone;
 - envoyer une capture au moteur vision quand FACECOMPARE_API_URL est configuré;
 - simuler un événement complet pour tester présence, règles et incidents sans moteur IA.
+
+## Import massif du personnel
+
+Depuis **Personnel -> Importer en masse**, un administrateur peut:
+- importer jusqu’à 1000 employés par lot depuis un CSV;
+- utiliser le matricule comme identifiant de référence;
+- mettre à jour ou ignorer les matricules existants;
+- sélectionner les photos correspondantes;
+- lancer les enrôlements biométriques en série;
+- suivre les erreurs et les employés sans photo.
 
 ## Roadmap entreprise
 
