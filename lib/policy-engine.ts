@@ -11,19 +11,12 @@ type VisionEvent = {
 };
 
 function matchesRule(rule: any, event: VisionEvent) {
-  const eventTypes = Array.isArray(rule.event_types)
-    ? rule.event_types
-    : rule.event_type
-      ? [rule.event_type]
-      : null;
-
+  const eventTypes = Array.isArray(rule.event_types) ? rule.event_types : rule.event_type ? [rule.event_type] : null;
   if (eventTypes && !eventTypes.includes(event.type)) return false;
   if (rule.min_confidence != null && (event.confidence ?? 0) < Number(rule.min_confidence)) return false;
   if (rule.max_confidence != null && event.confidence != null && event.confidence > Number(rule.max_confidence)) return false;
-
   const zones = Array.isArray(rule.zones) ? rule.zones : rule.zone ? [rule.zone] : null;
   if (zones && zones.length && !zones.includes(event.metadata?.zone)) return false;
-
   return true;
 }
 
@@ -58,18 +51,41 @@ export async function evaluatePolicies(db: SupabaseClient, event: VisionEvent) {
       .single();
 
     const actionType = definition.action_type || "notify";
+    const payload = {
+      policy_id: policy.id,
+      policy_name: policy.name,
+      severity: definition.severity || "medium",
+      message: definition.message || ("Règle déclenchée : " + policy.name),
+    };
+
     await db.from("actions").insert({
       tenant_id: event.tenant_id,
       event_id: event.id,
       action_type: actionType,
       status: "pending",
-      payload: {
-        policy_id: policy.id,
-        policy_name: policy.name,
-        severity: definition.severity || "medium",
-        message: definition.message || ("Règle déclenchée : " + policy.name),
-      },
+      payload,
     });
+
+    if (actionType === "review") {
+      await db.from("learning_examples").insert({
+        tenant_id: event.tenant_id,
+        example_id: "review-" + event.id,
+        source_event_id: event.id,
+        task: "vision_event_review",
+        input_uri: event.metadata?.snapshot_uri || null,
+        label: {
+          event_type: event.type,
+          subject_id: event.subject_id,
+          zone: event.metadata?.zone || null,
+        },
+        feedback: {
+          policy_id: policy.id,
+          policy_name: policy.name,
+          confidence: event.confidence,
+        },
+        review_status: "pending",
+      });
+    }
 
     const severity = definition.severity || "medium";
     if (definition.create_incident !== false && ["high", "critical"].includes(severity)) {
