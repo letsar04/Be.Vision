@@ -1,29 +1,15 @@
-import { createServerClient } from "@supabase/ssr";
-import { NextRequest, NextResponse } from "next/server";
-import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "./lib/supabase-config";
+import { NextResponse } from "next/server";
+import { createServerClient } from "./lib/supabase-server";
+import { withTimeout } from "./lib/workspace";
 
-export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request });
-
-  const supabase = createServerClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet, headers) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-        Object.entries(headers || {}).forEach(([key, value]) => response.headers.set(key, value));
-      }
-    }
-  });
-
-  await supabase.auth.getClaims();
-  response.headers.set("Cache-Control", "private, no-store");
-  return response;
+export async function proxy() {
+  try {
+    const supabase = await createServerClient();
+    await withTimeout(supabase.auth.getUser(), 5000);
+  } catch {
+    // Keep the proxy non-blocking; protected pages perform the authoritative check.
+  }
+  return NextResponse.next();
 }
 
-export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"]
-};
+export const config = { matcher: ["/dashboard/:path*"] };
