@@ -97,7 +97,7 @@ function truthy(value: string) {
   return ["1", "true", "oui", "yes", "o", "y", "vrai"].includes(value.toLowerCase().trim());
 }
 
-export function PeopleManager({ initialPeople }: { initialPeople: any[] }) {
+export function PeopleManager({ initialPeople, engineConfigured }: { initialPeople: any[]; engineConfigured: boolean }) {
   const [people, setPeople] = useState(initialPeople);
   const [form, setForm] = useState({
     display_name: "",
@@ -155,6 +155,10 @@ export function PeopleManager({ initialPeople }: { initialPeople: any[] }) {
   }
 
   async function enroll(id: string, file: File) {
+    if (!engineConfigured) {
+      setMessage("Le moteur de vision n’est pas connecté sur cet environnement.");
+      return;
+    }
     setMessage("");
     const fd = new FormData();
     fd.append("image", file);
@@ -274,7 +278,7 @@ export function PeopleManager({ initialPeople }: { initialPeople: any[] }) {
         <div>
           <div className="eyebrow">Identités & habilitations</div>
           <h1>Personnel</h1>
-          <p>Importez un annuaire complet et associez les photos des employés pour lancer les enrôlements en série.</p>
+          <p>Importez un annuaire complet puis enrôlez les personnes dès que le moteur de vision est disponible.</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
           <button className="btn btn-secondary" onClick={() => { setShowImport(!showImport); setShow(false); }}>
@@ -285,6 +289,19 @@ export function PeopleManager({ initialPeople }: { initialPeople: any[] }) {
           </button>
         </div>
       </div>
+
+      {!engineConfigured && (
+        <div className="dashboard-setup-banner compact" style={{ marginBottom: 14 }}>
+          <div className="setup-progress">
+            <div className="setup-progress-ring">!</div>
+            <div>
+              <strong>Moteur biométrique non connecté</strong>
+              <span>Les employés peuvent être importés maintenant. L’enrôlement sera activé dès que le moteur FaceCompare sera raccordé à cet environnement.</span>
+            </div>
+          </div>
+          <a className="btn btn-secondary btn-small" href="/dashboard/edge">Voir les agents de site</a>
+        </div>
+      )}
 
       {showImport && (
         <form className="panel section-card" onSubmit={importEmployees}>
@@ -401,7 +418,14 @@ export function PeopleManager({ initialPeople }: { initialPeople: any[] }) {
             <td><div className="person-row"><div className="person-avatar"><UserRound size={17}/></div><div><strong>{p.display_name}</strong><div className="muted" style={{fontSize:10}}>{p.external_id||"Sans matricule"}</div></div></div></td>
             <td><div>{p.metadata?.department||"—"}</div><div className="muted" style={{fontSize:10}}>{p.metadata?.role||""}</div></td>
             <td>
-              <label className="btn btn-secondary btn-small" style={{display:"inline-flex"}}><Upload size={13}/> Enrôler<input type="file" accept="image/*" hidden onChange={e=>{const f=e.target.files?.[0];if(f)void enroll(p.id,f)}}/></label>
+              {engineConfigured ? (
+                <label className="btn btn-secondary btn-small" style={{display:"inline-flex"}}>
+                  <Upload size={13}/> Enrôler
+                  <input type="file" accept="image/*" hidden onChange={e=>{const f=e.target.files?.[0];if(f)void enroll(p.id,f)}}/>
+                </label>
+              ) : (
+                <span className="badge badge-neutral">Moteur hors ligne</span>
+              )}
             </td>
             <td><span className="badge badge-success"><CheckCircle2 size={11}/>{p.status}</span></td>
           </tr>)}
