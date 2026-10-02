@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createServerClient } from "./supabase-server";
 
@@ -19,7 +20,7 @@ export type WorkspaceContext = {
   error?: string;
 };
 
-export async function getWorkspaceContext(): Promise<WorkspaceContext | null> {
+export const getWorkspaceContext = cache(async (): Promise<WorkspaceContext | null> => {
   const supabase = await createServerClient();
 
   try {
@@ -44,7 +45,7 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext | null> {
     const { data: tenant, error: tenantError } = await withTimeout(
       supabase
         .from("tenants")
-        .select("id,name,plan,billing_status,trial_ends_at")
+        .select("id,name,plan,billing_status,trial_ends_at,stripe_customer_id")
         .eq("id", membership.tenant_id)
         .single()
     );
@@ -59,7 +60,7 @@ export async function getWorkspaceContext(): Promise<WorkspaceContext | null> {
       error: error instanceof Error ? error.message : "Erreur de connexion.",
     };
   }
-}
+});
 
 export async function requireWorkspace() {
   const context = await getWorkspaceContext();
