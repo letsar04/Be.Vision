@@ -55,7 +55,7 @@ export default function LoginPage() {
       if (!response.ok) throw new Error(result.error || (signup ? "Impossible de créer le compte." : "Connexion impossible."));
 
       if (signup && !result.session) {
-        setMsg("Compte créé. Vérifiez votre adresse email avant de vous connecter.");
+        router.replace("/auth/check-email");
         return;
       }
 

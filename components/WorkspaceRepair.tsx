@@ -1,41 +1,76 @@
 "use client";
 
-import { useState } from "react";
-import { RefreshCw, Wrench } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CheckCircle2, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export function WorkspaceRepair() {
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("Préparation de votre espace entreprise…");
+  const [failed, setFailed] = useState(false);
+  const started = useRef(false);
   const router = useRouter();
 
-  async function repair() {
+  async function bootstrap() {
+    if (started.current && loading) return;
+    started.current = true;
     setLoading(true);
-    setMessage("");
+    setFailed(false);
+    setMessage("Création de l’espace entreprise…");
+
     try {
-      const response = await fetch("/api/bootstrap", { method: "POST" });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || "Impossible de terminer la configuration.");
-      setMessage("Espace restauré. Actualisation…");
+      const response = await fetch("/api/bootstrap", {
+        method: "POST",
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" }
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Impossible de préparer l’espace.");
+
+      setMessage("Espace prêt. Ouverture du centre de contrôle…");
+      await new Promise(resolve => setTimeout(resolve, 500));
+      router.replace("/dashboard");
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Erreur de configuration.");
-    } finally {
+      started.current = false;
+      setFailed(true);
       setLoading(false);
+      setMessage(error instanceof Error ? error.message : "La préparation de l’espace a échoué.");
     }
   }
 
-  return (
-    <div className="panel" style={{maxWidth:680}}>
-      <div className="feature-icon"><Wrench size={18}/></div>
-      <h2 style={{margin:"14px 0 7px"}}>Finaliser l’espace entreprise</h2>
-      <p className="muted">Votre authentification est valide, mais aucun rattachement d’espace n’a été trouvé. Be.Vision peut réparer automatiquement la configuration créée pour ce compte.</p>
-      <button className="btn btn-primary" onClick={repair} disabled={loading}>
-        <RefreshCw size={15} className={loading ? "spin" : ""}/>
-        {loading ? "Réparation…" : "Réparer maintenant"}
-      </button>
-      {message && <p className="muted" style={{marginTop:10}}>{message}</p>}
-      <style jsx>{`.spin{animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+  useEffect(() => { void bootstrap(); }, []);
+
+  return <div className="panel onboarding-panel">
+    <div className="onboarding-icon">
+      {loading ? <Loader2 size={25} /> : <CheckCircle2 size={25} />}
     </div>
-  );
+    <div className="eyebrow">Mise en route automatique</div>
+    <h2>Préparation de votre centre de contrôle</h2>
+    <p className="onboarding-copy">
+      Be.Vision crée ou récupère automatiquement votre espace, votre site principal et les règles de sécurité de départ.
+    </p>
+    <div className="onboarding-steps">
+      <Step text="Espace entreprise" />
+      <Step text="Site principal" />
+      <Step text="Règles de sécurité" />
+      <Step text="Centre de contrôle" />
+    </div>
+    <div className={failed ? "auth-status" : "auth-status info"} style={{ marginTop: 16 }}>{message}</div>
+    {failed && <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+      <button className="btn btn-primary" onClick={() => void bootstrap()}><RefreshCw size={15}/> Réessayer</button>
+      <a className="btn btn-secondary" href="/login">Changer de compte</a>
+    </div>}
+    {!failed && <div className="health-strip" style={{ marginTop: 14 }}>
+      <span className="health-pill"><ShieldCheck size={12}/> Session sécurisée</span>
+      <span className="health-pill">Configuration automatique</span>
+    </div>}
+  </div>;
+}
+
+function Step({ text }: { text: string }) {
+  return <div className="onboarding-step">
+    <div className="onboarding-step-icon active"><Loader2 size={14} /></div>
+    <span>{text}</span>
+  </div>;
 }

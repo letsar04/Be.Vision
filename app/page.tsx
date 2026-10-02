@@ -1,7 +1,13 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getWorkspaceContext } from "../lib/workspace";
 import { Activity, AlertTriangle, BarChart3, Camera, CheckCircle2, Cloud, Cpu, ShieldCheck, Users } from "lucide-react";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const context = await getWorkspaceContext();
+  if (context?.user?.id) redirect("/dashboard");
   return (
     <div className="hero-shell">
       <header className="top-nav container">
